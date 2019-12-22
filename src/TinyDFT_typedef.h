@@ -1,11 +1,11 @@
-#ifndef _YATSCF_TYPEDEF_H_
-#define _YATSCF_TYPEDEF_H_
+#ifndef _YATDFT_TYPEDEF_H_
+#define _YATDFT_TYPEDEF_H_
 
 #include <omp.h>
 #include "libCMS.h"
 
-// Tiny SCF engine
-struct TinySCF_struct 
+// TinyDFT structure
+struct TinyDFT_struct 
 {
     int    nthread;         // Number of threads
     
@@ -87,13 +87,13 @@ struct TinySCF_struct
     double mem_size, init_time, S_Hcore_time, shell_scr_time;
 };
 
-typedef struct TinySCF_struct* TinySCF_t;
+typedef struct TinyDFT_struct* TinyDFT_t;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Initialize a TinySCF structure, including:
+// Initialize a TinyDFT structure, including:
 //   (1) load molecular system and preparing ERI related data structures using libCMS;
 //   (2) allocate memory for all matrices;
 //   (3) perform Schwarz screening for shell pairs.
@@ -101,13 +101,13 @@ extern "C" {
 //   bas_fname : Gaussian basis set file name (.gbs)
 //   xyz_fname : Molecule coordinate file name
 // Output parameter:
-//   TinySCF_ : Pointer to a initialized TinySCF structure
-void TinySCF_init(TinySCF_t *TinySCF_, char *bas_fname, char *xyz_fname);
+//   TinyDFT_ : Pointer to a initialized TinyDFT structure
+void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname);
 
-// Destroy a TinySCF structure
+// Destroy a TinyDFT structure
 // Input parameter:
-//   TinySCF_ : Pointer to a TinySCF structure to be destroyed
-void TinySCF_destroy(TinySCF_t *_TinySCF);
+//   TinyDFT_ : Pointer to a TinyDFT structure to be destroyed
+void TinyDFT_destroy(TinyDFT_t *_TinyDFT);
 
 #ifdef __cplusplus
 }

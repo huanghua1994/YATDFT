@@ -8,23 +8,23 @@
 #include <mkl.h>
 
 #include "utils.h"
-#include "TinySCF_typedef.h"
+#include "TinyDFT_typedef.h"
 #include "build_HF_mat.h"
 #include "ket_sp_list.h"
 #include "acc_JKmat.h"
 #include "libCMS.h"
 
-void TinySCF_build_Hcore_S_X_mat(TinySCF_t TinySCF, double *Hcore_mat, double *S_mat, double *X_mat)
+void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S_mat, double *X_mat)
 {
-    assert(TinySCF != NULL);
+    assert(TinyDFT != NULL);
     
-    int nbf            = TinySCF->nbf;
-    int nshell         = TinySCF->nshell;
-    int mat_size       = TinySCF->mat_size;
-    int *shell_bf_sind = TinySCF->shell_bf_sind;
-    int *shell_bf_num  = TinySCF->shell_bf_num;
-    Simint_t   simint  = TinySCF->simint;
-    BasisSet_t basis   = TinySCF->basis;
+    int nbf            = TinyDFT->nbf;
+    int nshell         = TinyDFT->nshell;
+    int mat_size       = TinyDFT->mat_size;
+    int *shell_bf_sind = TinyDFT->shell_bf_sind;
+    int *shell_bf_num  = TinyDFT->shell_bf_num;
+    Simint_t   simint  = TinyDFT->simint;
+    BasisSet_t basis   = TinyDFT->basis;
     
     // Compute core Hamiltonian and overlap matrix
     memset(Hcore_mat, 0, DBL_SIZE * mat_size);
@@ -80,7 +80,7 @@ void TinySCF_build_Hcore_S_X_mat(TinySCF_t TinySCF, double *Hcore_mat, double *S
 }
 
 // Get the final J and K matrices: J = (J + J^T) / 2, K = (K + K^T) / 2
-static void TinySCF_finalize_JKmat(const int nbf, double *J_mat, double *K_mat)
+static void TinyDFT_finalize_JKmat(const int nbf, double *J_mat, double *K_mat)
 {
     #pragma omp for schedule(dynamic)
     for (int irow = 0; irow < nbf; irow++)
@@ -100,7 +100,7 @@ static void TinySCF_finalize_JKmat(const int nbf, double *J_mat, double *K_mat)
     }
 }
 
-static void TinySCF_JKblkmat_to_JKmat(
+static void TinyDFT_JKblkmat_to_JKmat(
     double *J_mat, double *K_mat, double *J_blk_mat, double *K_blk_mat,
     int *blk_mat_ptr, int *shell_bf_num, int *shell_bf_sind, int nshell, int nbf
 )
@@ -134,7 +134,7 @@ static void TinySCF_JKblkmat_to_JKmat(
     }
 }
 
-static void TinySCF_Dmat_to_Dblkmat(
+static void TinyDFT_Dmat_to_Dblkmat(
     const double *D_mat, double *D_blk_mat, int *blk_mat_ptr, 
     int *shell_bf_num, int *shell_bf_sind, int nshell, int nbf
 )
@@ -154,29 +154,29 @@ static void TinySCF_Dmat_to_Dblkmat(
     }
 }
 
-void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, double *K_mat)
+void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, double *K_mat)
 {
-    int    nbf            = TinySCF->nbf;
-    int    nshell         = TinySCF->nshell;
-    int    num_valid_sp   = TinySCF->num_valid_sp;
-    int    max_dim        = TinySCF->max_dim;
-    int    mat_size       = TinySCF->mat_size;
-    int    max_JKacc_buf  = TinySCF->max_JKacc_buf;
-    int    *shell_bf_num  = TinySCF->shell_bf_num;
-    int    *shell_bf_sind = TinySCF->shell_bf_sind;
-    int    *valid_sp_lid  = TinySCF->valid_sp_lid;
-    int    *valid_sp_rid  = TinySCF->valid_sp_rid;
-    int    *blk_mat_ptr   = TinySCF->blk_mat_ptr;
-    int    *Mpair_flag    = TinySCF->Mpair_flag;
-    int    *Npair_flag    = TinySCF->Npair_flag;
-    double scrtol2        = TinySCF->shell_scrtol2;
-    double *sp_scrval     = TinySCF->sp_scrval;
-    double *J_blk_mat     = TinySCF->J_blk_mat;
-    double *K_blk_mat     = TinySCF->K_blk_mat;
-    double *D_blk_mat     = TinySCF->D_blk_mat;
-    double *FM_strip_buf  = TinySCF->FM_strip_buf;
-    double *FN_strip_buf  = TinySCF->FN_strip_buf;
-    Simint_t simint       = TinySCF->simint;
+    int    nbf            = TinyDFT->nbf;
+    int    nshell         = TinyDFT->nshell;
+    int    num_valid_sp   = TinyDFT->num_valid_sp;
+    int    max_dim        = TinyDFT->max_dim;
+    int    mat_size       = TinyDFT->mat_size;
+    int    max_JKacc_buf  = TinyDFT->max_JKacc_buf;
+    int    *shell_bf_num  = TinyDFT->shell_bf_num;
+    int    *shell_bf_sind = TinyDFT->shell_bf_sind;
+    int    *valid_sp_lid  = TinyDFT->valid_sp_lid;
+    int    *valid_sp_rid  = TinyDFT->valid_sp_rid;
+    int    *blk_mat_ptr   = TinyDFT->blk_mat_ptr;
+    int    *Mpair_flag    = TinyDFT->Mpair_flag;
+    int    *Npair_flag    = TinyDFT->Npair_flag;
+    double scrtol2        = TinyDFT->shell_scrtol2;
+    double *sp_scrval     = TinyDFT->sp_scrval;
+    double *J_blk_mat     = TinyDFT->J_blk_mat;
+    double *K_blk_mat     = TinyDFT->K_blk_mat;
+    double *D_blk_mat     = TinyDFT->D_blk_mat;
+    double *FM_strip_buf  = TinyDFT->FM_strip_buf;
+    double *FN_strip_buf  = TinyDFT->FN_strip_buf;
+    Simint_t simint       = TinyDFT->simint;
     
     memset(J_blk_mat, 0, DBL_SIZE * mat_size);
     memset(K_blk_mat, 0, DBL_SIZE * mat_size);
@@ -185,7 +185,7 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
     {
         int tid = omp_get_thread_num();
         
-        TinySCF_Dmat_to_Dblkmat(
+        TinyDFT_Dmat_to_Dblkmat(
             D_mat, D_blk_mat, blk_mat_ptr,
             shell_bf_num, shell_bf_sind, nshell, nbf
         );
@@ -210,7 +210,7 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
             int N = valid_sp_rid[MN];
             double scrval1 = sp_scrval[M * nshell + N];
             
-            double *J_MN_buf = TinySCF->JKacc_buf + tid * max_JKacc_buf;
+            double *J_MN_buf = TinyDFT->JKacc_buf + tid * max_JKacc_buf;
             double *J_MN = J_blk_mat + blk_mat_ptr[M * nshell + N];
             int dimM = shell_bf_num[M], dimN = shell_bf_num[N];
             memset(J_MN_buf, 0, sizeof(double) * dimM * dimN);
@@ -264,7 +264,7 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
                     {
                         double st = get_wtime_sec();
                         acc_JKmat_with_ket_sp_list(
-                            TinySCF, tid, M, N, 
+                            TinyDFT, tid, M, N, 
                             target_shellpair_list->P_list,
                             target_shellpair_list->Q_list,
                             target_shellpair_list->npairs,
@@ -306,7 +306,7 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
                     {
                         double st = get_wtime_sec();
                         acc_JKmat_with_ket_sp_list(
-                            TinySCF, tid, M, N, 
+                            TinyDFT, tid, M, N, 
                             target_shellpair_list->P_list,
                             target_shellpair_list->Q_list,
                             target_shellpair_list->npairs,
@@ -347,18 +347,18 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
             }
         }  // End of MN loop
         
-        TinySCF_JKblkmat_to_JKmat(
+        TinyDFT_JKblkmat_to_JKmat(
             J_mat, K_mat, J_blk_mat, K_blk_mat, 
             blk_mat_ptr, shell_bf_num, shell_bf_sind, nshell, nbf
         );
-        TinySCF_finalize_JKmat(nbf, J_mat, K_mat);
+        TinyDFT_finalize_JKmat(nbf, J_mat, K_mat);
         
         CMS_Simint_freeThreadMultishellpair(&thread_multi_shellpair);
         free_ThreadKetShellpairLists(thread_ksp_lists);
     }  // End of "#pragma omp parallel"
 }
 
-void TinySCF_calc_HF_energy(
+void TinyDFT_calc_HF_energy(
     const int mat_size, const double *D_mat, const double *Hcore_mat, const double *J_mat, 
     const double *K_mat, double *E_one_elec, double *E_two_elec, double *E_HF_exchange
 )

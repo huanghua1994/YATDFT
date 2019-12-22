@@ -5,26 +5,26 @@
 
 #include <mkl.h>
 
-#include "TinySCF_typedef.h"
+#include "TinyDFT_typedef.h"
 #include "CDIIS.h"
 #include "utils.h"
 
-void TinySCF_CDIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat)
+void TinyDFT_CDIIS(TinyDFT_t TinyDFT, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat)
 {
-    int    nbf       = TinySCF->nbf;
-    int    mat_size  = TinySCF->mat_size;
-    int    *ipiv     = TinySCF->DIIS_ipiv;
-    double *F0_mat   = TinySCF->F0_mat;
-    double *R_mat    = TinySCF->R_mat;
-    double *B_mat    = TinySCF->B_mat;
-    double *FDS_mat  = TinySCF->FDS_mat;
-    double *DIIS_rhs = TinySCF->DIIS_rhs;
-    double *tmp_mat  = TinySCF->tmp_mat;
+    int    nbf       = TinyDFT->nbf;
+    int    mat_size  = TinyDFT->mat_size;
+    int    *ipiv     = TinyDFT->DIIS_ipiv;
+    double *F0_mat   = TinyDFT->F0_mat;
+    double *R_mat    = TinyDFT->R_mat;
+    double *B_mat    = TinyDFT->B_mat;
+    double *FDS_mat  = TinyDFT->FDS_mat;
+    double *DIIS_rhs = TinyDFT->DIIS_rhs;
+    double *tmp_mat  = TinyDFT->tmp_mat;
     
     int mat_msize = DBL_SIZE * mat_size;
     int ldB = MAX_DIIS + 1;
     
-    if (TinySCF->iter <= 1)
+    if (TinyDFT->iter <= 1)
     {
         // F = X^T * F * X
         // Use tmp_mat to store X^T * F
@@ -41,12 +41,12 @@ void TinySCF_CDIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, 
     }
     
     int DIIS_idx;   // Which historic F matrix will be replaced
-    if (TinySCF->DIIS_len < MAX_DIIS)
+    if (TinyDFT->DIIS_len < MAX_DIIS)
     {
-        DIIS_idx = TinySCF->DIIS_len;
-        TinySCF->DIIS_len++;
+        DIIS_idx = TinyDFT->DIIS_len;
+        TinyDFT->DIIS_len++;
     } else {
-        DIIS_idx = TinySCF->DIIS_bmax_id;
+        DIIS_idx = TinyDFT->DIIS_bmax_id;
     }
     
     // FDS = F * D * S;
@@ -83,7 +83,7 @@ void TinySCF_CDIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, 
     memset(DIIS_dot, 0, DBL_SIZE * (MAX_DIIS + 1));
     memcpy(R_mat + mat_size * DIIS_idx, tmp_mat, mat_msize);
     double *Ri = R_mat + mat_size * DIIS_idx;
-    for (int j = 0; j < TinySCF->DIIS_len; j++)
+    for (int j = 0; j < TinyDFT->DIIS_len; j++)
     {
         double *Rj = R_mat + mat_size * j;
         DIIS_dot[j] = cblas_ddot(mat_size, Ri, 1, Rj, 1);
@@ -92,19 +92,19 @@ void TinySCF_CDIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, 
     // Construct symmetric B
     // B(DIIS_idx, 1 : DIIS_len) = DIIS_dot(1 : DIIS_idx);
     // B(1 : DIIS_len, DIIS_idx) = DIIS_dot(1 : DIIS_idx);
-    for (int i = 0; i < TinySCF->DIIS_len; i++)
+    for (int i = 0; i < TinyDFT->DIIS_len; i++)
     {
         B_mat[DIIS_idx * ldB + i] = DIIS_dot[i];
         B_mat[i * ldB + DIIS_idx] = DIIS_dot[i];
     }
     
     // Pick an old F that its residual has the largest 2-norm
-    for (int i = 0; i < TinySCF->DIIS_len; i++)
+    for (int i = 0; i < TinyDFT->DIIS_len; i++)
     {
-        if (B_mat[i * ldB + i] > TinySCF->DIIS_bmax)
+        if (B_mat[i * ldB + i] > TinyDFT->DIIS_bmax)
         {
-            TinySCF->DIIS_bmax    = B_mat[i * ldB + i];
-            TinySCF->DIIS_bmax_id = i;
+            TinyDFT->DIIS_bmax    = B_mat[i * ldB + i];
+            TinyDFT->DIIS_bmax_id = i;
         }
     }
     
@@ -124,13 +124,13 @@ void TinySCF_CDIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, 
     
     // Solve the linear system 
     memset(DIIS_rhs, 0, DBL_SIZE * (MAX_DIIS + 1));
-    DIIS_rhs[TinySCF->DIIS_len] = -1;
+    DIIS_rhs[TinyDFT->DIIS_len] = -1;
     // Copy B_mat to tmp_mat, since LAPACKE_dgesv will overwrite the input matrix
     memcpy(tmp_mat, B_mat, DBL_SIZE * ldB * ldB);  
-    LAPACKE_dgesv(LAPACK_ROW_MAJOR, TinySCF->DIIS_len + 1, 1, tmp_mat, ldB, ipiv, DIIS_rhs, 1);
+    LAPACKE_dgesv(LAPACK_ROW_MAJOR, TinyDFT->DIIS_len + 1, 1, tmp_mat, ldB, ipiv, DIIS_rhs, 1);
     
     // Form new X^T * F * X
     memset(F_mat, 0, mat_msize);
-    for (int i = 0; i < TinySCF->DIIS_len; i++)
+    for (int i = 0; i < TinyDFT->DIIS_len; i++)
         cblas_daxpy(mat_size, DIIS_rhs[i], F0_mat + i * mat_size, 1, F_mat, 1);
 }

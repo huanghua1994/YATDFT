@@ -1,5 +1,5 @@
-#ifndef _YATSCF_UTILS_H_
-#define _YATSCF_UTILS_H_
+#ifndef _YATDFT_UTILS_H_
+#define _YATDFT_UTILS_H_
 
 // Helper functions
 

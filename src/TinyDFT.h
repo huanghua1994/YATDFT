@@ -1,9 +1,9 @@
-#ifndef __TINYSCF_H__
-#define __TINYSCF_H__
+#ifndef __YATDFT_H__
+#define __YATDFT_H__
 
 #include "libCMS.h"
 
-#include "TinySCF_typedef.h"
+#include "TinyDFT_typedef.h"
 
 #include "build_Dmat.h"
 

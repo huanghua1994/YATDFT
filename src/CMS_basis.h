@@ -1,5 +1,5 @@
-#ifndef __CMS_BASISSET_H__
-#define __CMS_BASISSET_H__
+#ifndef __CMS_BASIS_H__
+#define __CMS_BASIS_H__
 
 #include "CMS_config.h"
 

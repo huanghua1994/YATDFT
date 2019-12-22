@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "TinySCF_typedef.h"
+
+#include "TinyDFT_typedef.h"
 #include "acc_JKmat.h"
 
 static inline void unique_integral_coef(int M, int N, int P, int Q, double *coef)
@@ -41,14 +42,14 @@ static inline void update_global_JKblk(
 
 void acc_JKmat(ACC_JKMAT_IN_PARAM)
 {
-    int nbf           = TinySCF->nbf;
-    int nshell        = TinySCF->nshell;
-    int max_JKacc_buf = TinySCF->max_JKacc_buf;
-    int *shell_bf_num = TinySCF->shell_bf_num;
-    int *blk_mat_ptr  = TinySCF->blk_mat_ptr;
-    double *J_blk_mat = TinySCF->J_blk_mat;
-    double *D_blk_mat = TinySCF->D_blk_mat;
-    double *JKacc_buf = TinySCF->JKacc_buf;
+    int nbf           = TinyDFT->nbf;
+    int nshell        = TinyDFT->nshell;
+    int max_JKacc_buf = TinyDFT->max_JKacc_buf;
+    int *shell_bf_num = TinyDFT->shell_bf_num;
+    int *blk_mat_ptr  = TinyDFT->blk_mat_ptr;
+    double *J_blk_mat = TinyDFT->J_blk_mat;
+    double *D_blk_mat = TinyDFT->D_blk_mat;
+    double *JKacc_buf = TinyDFT->JKacc_buf;
     
     // Set matrix size info
     int dimM = shell_bf_num[M];
@@ -138,20 +139,20 @@ void acc_JKmat(ACC_JKMAT_IN_PARAM)
     );
 }
 
-#define ACCUM_FOCK_PARAM    TinySCF, tid, M, N, P_list[ipair], Q_list[ipair], \
-                            ERIs + ipair * nints, load_P, write_P, \
-                            FM_strip_buf, FM_strip_offset, \
-                            FN_strip_buf, FN_strip_offset
+#define ACC_JKMAT_PARAM TinyDFT, tid, M, N, P_list[ipair], Q_list[ipair], \
+                        ERIs + ipair * nints, load_P, write_P, \
+                        FM_strip_buf, FM_strip_offset, \
+                        FN_strip_buf, FN_strip_offset
 
 void acc_JKmat_with_ket_sp_list(
-    TinySCF_t TinySCF, int tid, int M, int N, 
+    TinyDFT_t TinyDFT, int tid, int M, int N, 
     int *P_list, int *Q_list, int npairs, double *ERIs, int nints,
     double *FM_strip_buf, double *FN_strip_buf,
     int *Mpair_flag, int *Npair_flag
 )
 {
-    int nshell = TinySCF->nshell;
-    int *mat_blk_ptr = TinySCF->blk_mat_ptr;
+    int nshell = TinyDFT->nshell;
+    int *mat_blk_ptr = TinyDFT->blk_mat_ptr;
     int load_P, write_P, prev_P = -1;
     int FM_strip_offset = mat_blk_ptr[M * nshell];
     int FN_strip_offset = mat_blk_ptr[N * nshell];
@@ -173,6 +174,6 @@ void acc_JKmat_with_ket_sp_list(
             if (curr_P != P_list[ipair + 1]) write_P = 1;
         }
         prev_P = curr_P;
-        acc_JKmat(ACCUM_FOCK_PARAM);
+        acc_JKmat(ACC_JKMAT_PARAM);
     }
 }
