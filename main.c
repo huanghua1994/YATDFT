@@ -5,6 +5,7 @@
 #include <assert.h>
 
 #include "TinySCF.h"
+#include "build_Fock.h"
 #include "utils.h"
 
 int main(int argc, char **argv)
@@ -18,7 +19,7 @@ int main(int argc, char **argv)
     // Initialize TinySCF
     TinySCF_t TinySCF = (TinySCF_t) malloc(sizeof(struct TinySCF_struct));
     TinySCF_init(TinySCF, argv[1], argv[2], atoi(argv[3]));
-    TinySCF_compute_Hcore_Ovlp_mat(TinySCF);
+    TinySCF_build_Hcore_S_X(TinySCF, TinySCF->Hcore_mat, TinySCF->S_mat, TinySCF->X_mat);
     TinySCF_compute_sq_Schwarz_scrvals(TinySCF);
     TinySCF_get_initial_guess(TinySCF);
     

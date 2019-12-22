@@ -94,11 +94,6 @@ typedef struct TinySCF_struct* TinySCF_t;
 // allocate all memory for other calculation
 void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname, const int niters);
 
-// Compute core Hamiltonian and overlap matrix, and generate basis transform matrix
-// The overlap matrix is not needed after generating basis transform matrix, and its
-// memory space will be used as temporary space in other procedure
-void TinySCF_compute_Hcore_Ovlp_mat(TinySCF_t TinySCF);
-
 // Compute the screening values of each shell quartet and the unique shell pairs
 // that survive screening using Schwarz inequality
 void TinySCF_compute_sq_Schwarz_scrvals(TinySCF_t TinySCF);
