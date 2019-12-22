@@ -3,6 +3,7 @@
 
 #include "TinySCF.h"
 
-void TinySCF_DIIS(TinySCF_t TinySCF);
+// DIIS acceleration (Pulay mixing)
+void TinySCF_DIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat);
 
 #endif

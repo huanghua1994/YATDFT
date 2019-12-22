@@ -8,23 +8,20 @@
 #include "utils.h"
 #include "TinySCF.h"
 
-void TinySCF_DIIS(TinySCF_t TinySCF)
+void TinySCF_DIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat)
 {
-    double *S_mat    = TinySCF->S_mat;
-    double *F_mat    = TinySCF->F_mat;
-    double *D_mat    = TinySCF->D_mat;
-    double *X_mat    = TinySCF->X_mat;
+    int    nbf       = TinySCF->nbf;
+    int    mat_size  = TinySCF->mat_size;
+    int    *ipiv     = TinySCF->DIIS_ipiv;
     double *F0_mat   = TinySCF->F0_mat;
     double *R_mat    = TinySCF->R_mat;
     double *B_mat    = TinySCF->B_mat;
     double *FDS_mat  = TinySCF->FDS_mat;
     double *DIIS_rhs = TinySCF->DIIS_rhs;
     double *tmp_mat  = TinySCF->tmp_mat;
-    int    *ipiv     = TinySCF->DIIS_ipiv;
-    int mat_size     = TinySCF->mat_size;
-    int mat_mem_size = DBL_SIZE * mat_size;
+    
+    int mat_msize = DBL_SIZE * mat_size;
     int ldB = MAX_DIIS + 1;
-    int nbf = TinySCF->nbf;
     
     if (TinySCF->iter <= 1)
     {
@@ -83,7 +80,7 @@ void TinySCF_DIIS(TinySCF_t TinySCF)
     // DIIS_rhs is not used yet, use it to store dot product results
     double *DIIS_dot = DIIS_rhs; 
     memset(DIIS_dot, 0, DBL_SIZE * (MAX_DIIS + 1));
-    memcpy(R_mat + mat_size * DIIS_idx, tmp_mat, mat_mem_size);
+    memcpy(R_mat + mat_size * DIIS_idx, tmp_mat, mat_msize);
     double *Ri = R_mat + mat_size * DIIS_idx;
     for (int j = 0; j < TinySCF->DIIS_len; j++)
     {
@@ -122,7 +119,7 @@ void TinySCF_DIIS(TinySCF_t TinySCF)
         1.0, tmp_mat, nbf, X_mat, nbf, 0.0, F_mat, nbf
     );
     // Copy to F0
-    memcpy(F0_mat + mat_size * DIIS_idx, F_mat, mat_mem_size);
+    memcpy(F0_mat + mat_size * DIIS_idx, F_mat, mat_msize);
     
     // Solve the linear system 
     memset(DIIS_rhs, 0, DBL_SIZE * (MAX_DIIS + 1));
@@ -132,7 +129,7 @@ void TinySCF_DIIS(TinySCF_t TinySCF)
     LAPACKE_dgesv(LAPACK_ROW_MAJOR, TinySCF->DIIS_len + 1, 1, tmp_mat, ldB, ipiv, DIIS_rhs, 1);
     
     // Form new X^T * F * X
-    memset(F_mat, 0, mat_mem_size);
+    memset(F_mat, 0, mat_msize);
     for (int i = 0; i < TinySCF->DIIS_len; i++)
         cblas_daxpy(mat_size, DIIS_rhs[i], F0_mat + i * mat_size, 1, F_mat, 1);
 }

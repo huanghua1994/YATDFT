@@ -8,8 +8,10 @@
                             double *FM_strip_buf, int FM_strip_offset, \
                             double *FN_strip_buf, int FN_strip_offset
 
+// Accumulate an shell quartet ERI tensor to local J and K matrix buffers
 void acc_JKmat(ACC_JKMAT_IN_PARAM);
 
+// Accumulate a list of shell quartet ERI tensors to local J and K matrix buffers
 void acc_JKmat_with_ket_sp_list(
     TinySCF_t TinySCF, int tid, int M, int N, 
     int *P_list, int *Q_list, int npairs, double *ERIs, int nints,

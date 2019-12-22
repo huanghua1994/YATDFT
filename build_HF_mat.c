@@ -160,27 +160,27 @@ static void TinySCF_Dmat_to_Dblkmat(
 
 void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, double *K_mat)
 {
-    int nbf              = TinySCF->nbf;
-    int nshell           = TinySCF->nshell;
-    int num_valid_sp     = TinySCF->num_valid_sp;
-    int max_dim          = TinySCF->max_dim;
-    int mat_size         = TinySCF->mat_size;
-    int max_JKacc_buf    = TinySCF->max_JKacc_buf;
-    int *shell_bf_num    = TinySCF->shell_bf_num;
-    int *shell_bf_sind   = TinySCF->shell_bf_sind;
-    int *uniq_sp_lid     = TinySCF->uniq_sp_lid;
-    int *uniq_sp_rid     = TinySCF->uniq_sp_rid;
-    int *blk_mat_ptr     = TinySCF->blk_mat_ptr;
-    int *Mpair_flag      = TinySCF->Mpair_flag;
-    int *Npair_flag      = TinySCF->Npair_flag;
-    double scrtol2       = TinySCF->shell_scrtol2;
-    double *sp_scrval    = TinySCF->sp_scrval;
-    double *J_blk_mat    = TinySCF->J_blk_mat;
-    double *K_blk_mat    = TinySCF->K_blk_mat;
-    double *D_blk_mat    = TinySCF->D_blk_mat;
-    double *FM_strip_buf = TinySCF->FM_strip_buf;
-    double *FN_strip_buf = TinySCF->FN_strip_buf;
-    Simint_t simint      = TinySCF->simint;
+    int    nbf            = TinySCF->nbf;
+    int    nshell         = TinySCF->nshell;
+    int    num_valid_sp   = TinySCF->num_valid_sp;
+    int    max_dim        = TinySCF->max_dim;
+    int    mat_size       = TinySCF->mat_size;
+    int    max_JKacc_buf  = TinySCF->max_JKacc_buf;
+    int    *shell_bf_num  = TinySCF->shell_bf_num;
+    int    *shell_bf_sind = TinySCF->shell_bf_sind;
+    int    *valid_sp_lid  = TinySCF->valid_sp_lid;
+    int    *valid_sp_rid  = TinySCF->valid_sp_rid;
+    int    *blk_mat_ptr   = TinySCF->blk_mat_ptr;
+    int    *Mpair_flag    = TinySCF->Mpair_flag;
+    int    *Npair_flag    = TinySCF->Npair_flag;
+    double scrtol2        = TinySCF->shell_scrtol2;
+    double *sp_scrval     = TinySCF->sp_scrval;
+    double *J_blk_mat     = TinySCF->J_blk_mat;
+    double *K_blk_mat     = TinySCF->K_blk_mat;
+    double *D_blk_mat     = TinySCF->D_blk_mat;
+    double *FM_strip_buf  = TinySCF->FM_strip_buf;
+    double *FN_strip_buf  = TinySCF->FN_strip_buf;
+    Simint_t simint       = TinySCF->simint;
     
     memset(J_blk_mat, 0, DBL_SIZE * mat_size);
     memset(K_blk_mat, 0, DBL_SIZE * mat_size);
@@ -210,8 +210,8 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
         #pragma omp for schedule(dynamic)
         for (int MN = 0; MN < num_valid_sp; MN++)
         {
-            int M = uniq_sp_lid[MN];
-            int N = uniq_sp_rid[MN];
+            int M = valid_sp_lid[MN];
+            int N = valid_sp_rid[MN];
             double scrval1 = sp_scrval[M * nshell + N];
             
             double *J_MN_buf = TinySCF->JKacc_buf + tid * max_JKacc_buf;
@@ -226,8 +226,8 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
             
             for (int PQ = 0; PQ < num_valid_sp; PQ++)
             {
-                int P = uniq_sp_lid[PQ];
-                int Q = uniq_sp_rid[PQ];
+                int P = valid_sp_lid[PQ];
+                int Q = valid_sp_rid[PQ];
                 double scrval2 = sp_scrval[P * nshell + Q];
                 
                 // Symmetric uniqueness check, from GTFock

@@ -10,43 +10,69 @@
 // Tiny SCF engine
 struct TinySCF_struct 
 {
-    // OpenMP parallel setting and buffer
-    int    nthreads;        // Number of threads
-    int    max_JKacc_buf;   // Maximum buffer size for each thread's accumulating J and K matrix
-    double *JKacc_buf;      // All thread's buffer for accumulating J and K matrices
+    int    nthread;         // Number of threads
     
-    // Chemical system info
-    BasisSet_t basis;       // Basis set object for storing chemical system info, handled by libCMS
-    int natom, nshell;      // Number of atoms and shells
-    int nbf, n_occ;         // Number of basis functions and occupied orbits
-    int charge, electron;   // Charge and number of electrons 
-    char *bas_name;         // Basis set file name
-    char *mol_name;         // Molecular file name
-    
-    // Auxiliary variables 
-    int num_total_sp;       // Number of shell pairs        (== nshell * nshell)
-    int num_valid_sp;       // Number of unique screened shell pairs
-    int mat_size;           // Size of matrices             (== nbf * nbf)
-    int max_dim;            // Maximum value of dim{M, N, P, Q}
-    
-    // SCF iteration info
-    int    max_iter, iter;  // Maximum and current SCF iteration
-    double nuc_energy;      // Nuclear energy
-    double HF_energy;       // Hartree-Fock energy
-    double ene_tol;         // SCF termination criteria for energy change
-    
-    // Screening parameters
+    // Molecular system and ERI info
+    char   *bas_name;       // Basis set file name
+    char   *mol_name;       // Molecular file name
+    int    natom;           // Number of atoms
+    int    nshell;          // Number of shells
+    int    nbf;             // Number of basis functions
+    int    n_occ;           // Number of occupied orbits
+    int    charge;          // Charge of molecule
+    int    electron;        // Number of electrons
+    int    num_total_sp;    // Number of total shell pairs (== nshell * nshell)
+    int    num_valid_sp;    // Number of unique screened shell pairs
+    int    mat_size;        // Size of matrices  (== nbf * nbf)
+    int    max_dim;         // Maximum value of dim{M, N, P, Q}
+    int    *valid_sp_lid;   // Left shell id of all screened unique shell pairs
+    int    *valid_sp_rid;   // Right shell id of all screened unique shell pairs
+    int    *shell_bf_sind;  // Index of the first basis function of each shell
+    int    *shell_bf_num;   // Number of basis function in each shell
     double prim_scrtol;     // Primitive screening 
     double shell_scrtol2;   // Square of the shell screening tolerance
     double max_scrval;      // == max(fabs(sp_scrval(:)))
     double *sp_scrval;      // Square of screening values (upper bound) of each shell pair
-    int    *uniq_sp_lid;    // Left shell id of all unique shell pairs
-    int    *uniq_sp_rid;    // Right shell id of all unique shell pairs
+    Simint_t   simint;      // Simint object for ERI, handled by libCMS
+    BasisSet_t basis;       // Basis set object for storing chemical system info, handled by libCMS
     
-    // ERIs
-    Simint_t simint;        // Simint object for ERI, handled by libCMS
-    int *shell_bf_sind;     // Index of the first basis function of each shell
-    int *shell_bf_num;      // Number of basis function in each shell
+    // Matrices and arrays used only in build_HF_mat
+    int    max_JKacc_buf;   // Maximum buffer size for each thread's accumulating J and K matrix
+    int    *blk_mat_ptr;    // Index of a given block's top-left element in the blocked matrix
+    int    *Mpair_flag;     // Flags for marking if (M, i) is updated 
+    int    *Npair_flag;     // Flags for marking if (N, i) is updated 
+    double *J_blk_mat;      // Blocked J matrix
+    double *K_blk_mat;      // Blocked K matrix
+    double *D_blk_mat;      // Blocked D matrix
+    double *JKacc_buf;      // All thread's buffer for accumulating J and K matrices
+    double *FM_strip_buf;   // Thread-private buffer for F_MP and F_MQ blocks with the same M
+    double *FN_strip_buf;   // Thread-private buffer for F_NP and F_NQ blocks with the same N
+
+    // Temporary matrices used in multiple modules
+    double *tmp_mat;        // build_Dmat, DIIS
+
+    // Matrices and arrays used only in build_Dmat
+    int    *ev_idx;         // Index of eigenvalues, for sorting
+    double *eigval;         // Eigenvalues for building density matrix
+
+    // Matrices and arrays used only in DIIS
+    int    DIIS_len;        // Number of previous F matrices
+    int    DIIS_bmax_id;    // The ID of a previous F matrix whose residual has the largest 2-norm
+    int    *DIIS_ipiv;      // Permutation info for DGESV in DIIS
+    double DIIS_bmax;       // The largest 2-norm of the stored F matrices' residuals
+    double *F0_mat;         // Previous X^T * F * X matrices
+    double *R_mat;          // "Residual" matrix
+    double *B_mat;          // Linear system coefficient matrix in DIIS
+    double *FDS_mat;        // F * D * S matrix in Commutator DIIS
+    double *DIIS_rhs;       // Linear system right-hand-side vector in DIIS
+    
+
+    // SCF iteration info
+    int    max_iter;        // Maximum SCF iteration
+    int    iter;            // Current SCF iteration
+    double nuc_energy;      // Nuclear energy
+    double HF_energy;       // Hartree-Fock energy
+    double ene_tol;         // SCF termination criteria for energy change
     
     // Matrices and temporary arrays in SCF
     double *Hcore_mat;      // Core Hamiltonian matrix
@@ -57,30 +83,6 @@ struct TinySCF_struct
     double *K_mat;          // Exchange matrix
     double *X_mat;          // Basis transformation matrix
     double *Cocc_mat;       // Temporary matrix for building density matrix
-    double *eigval;         // Eigenvalues for building density matrix
-    int    *ev_idx;         // Index of eigenvalues, for sorting
-    double *tmp_mat;        // Temporary matrix
-    
-    // Blocked J, K and D matrices and the offsets of each block
-    double *J_blk_mat;      // Blocked J matrix
-    double *K_blk_mat;      // Blocked K matrix
-    double *D_blk_mat;      // Blocked D matrix
-    int    *blk_mat_ptr;    // Index of a given block's top-left element in the blocked matrix
-    double *FM_strip_buf;   // Thread-private buffer for F_MP and F_MQ blocks with the same M
-    double *FN_strip_buf;   // Thread-private buffer for F_NP and F_NQ blocks with the same N
-    int    *Mpair_flag;     // Flags for marking if (M, i) is updated 
-    int    *Npair_flag;     // Flags for marking if (N, i) is updated 
-    
-    // Matrices and arrays for DIIS
-    double *F0_mat;         // Previous X^T * F * X matrices
-    double *R_mat;          // "Residual" matrix
-    double *B_mat;          // Linear system coefficient matrix in DIIS
-    double *FDS_mat;        // F * D * S matrix in Commutator DIIS
-    double *DIIS_rhs;       // Linear system right-hand-side vector in DIIS
-    int    *DIIS_ipiv;      // Permutation info for DGESV in DIIS
-    int    DIIS_len;        // Number of previous F matrices
-    int    DIIS_bmax_id;    // The ID of a previous F matrix whose residual has the largest 2-norm
-    double DIIS_bmax;       // The largest 2-norm of the stored F matrices' residuals
     
     // Statistic 
     double mem_size, init_time, S_Hcore_time, shell_scr_time;
