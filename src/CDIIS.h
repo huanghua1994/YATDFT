@@ -8,6 +8,10 @@
 
 // All matrices used in this module is row-major, size = nbf * nbf, leading dimension = nbf
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // CDIIS acceleration (Pulay mixing)
 // Input parameters:
 //   TinySCF : Initialized TinySCF structure
@@ -18,5 +22,9 @@
 // Output parameter:
 //   F_mat : CDIIS processed X^T * F * X 
 void TinySCF_CDIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

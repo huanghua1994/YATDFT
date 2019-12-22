@@ -105,7 +105,6 @@ static void TinySCF_JKblkmat_to_JKmat(
     int *blk_mat_ptr, int *shell_bf_num, int *shell_bf_sind, int nshell, int nbf
 )
 {
-    #ifdef BUILD_J_MAT_STD
     #pragma omp for
     for (int i = 0; i < nshell; i++)
     {
@@ -119,9 +118,7 @@ static void TinySCF_JKblkmat_to_JKmat(
             );
         }
     }
-    #endif
     
-    #ifdef BUILD_K_MAT_HF
     #pragma omp for
     for (int i = 0; i < nshell; i++)
     {
@@ -135,7 +132,6 @@ static void TinySCF_JKblkmat_to_JKmat(
             );
         }
     }
-    #endif
 }
 
 static void TinySCF_Dmat_to_Dblkmat(
@@ -328,10 +324,7 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
             }  // End of ket_id loop
             
             // Accumulate thread-local J and K results to global J and K mat
-            #ifdef BUILD_J_MAT_STD
             atomic_add_vector(J_MN, J_MN_buf, dimM * dimN);
-            #endif
-            #ifdef BUILD_K_MAT_HF
             int FM_strip_offset = blk_mat_ptr[M * nshell];
             int FN_strip_offset = blk_mat_ptr[N * nshell];
             for (int iPQ = 0; iPQ < nshell; iPQ++)
@@ -352,7 +345,6 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
                     atomic_add_vector(K_blk_ptr, thread_FN_strip_blk_ptr, dimN * dim_iPQ);
                 }
             }
-            #endif
         }  // End of MN loop
         
         TinySCF_JKblkmat_to_JKmat(

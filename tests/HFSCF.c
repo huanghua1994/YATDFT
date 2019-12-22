@@ -5,16 +5,12 @@
 #include <math.h>
 #include <omp.h>
 
-#include "TinySCF_typedef.h"
-#include "build_Dmat.h"
-#include "build_HF_mat.h"
-#include "CDIIS.h"
-#include "utils.h"
+#include "TinySCF.h"
 
 void TinySCF_HFSCF(TinySCF_t TinySCF, const int max_iter)
 {
     // Start SCF iterations
-    printf("TinySCF SCF iteration started...\n");
+    printf("HFSCF iteration started...\n");
     printf("Nuclear repulsion energy = %.10lf\n", TinySCF->E_nuc_rep);
     TinySCF->iter = 0;
     TinySCF->max_iter = max_iter;

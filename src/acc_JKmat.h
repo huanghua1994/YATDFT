@@ -8,6 +8,10 @@
                             double *FM_strip_buf, int FM_strip_offset, \
                             double *FN_strip_buf, int FN_strip_offset
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Accumulate an shell quartet ERI tensor to local J and K matrix buffers
 void acc_JKmat(ACC_JKMAT_IN_PARAM);
 
@@ -39,5 +43,9 @@ static inline void direct_add_vector(double *dst, double *src, int length)
     #pragma omp simd
     for (int i = 0; i < length; i++) dst[i] += src[i];
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,26 +1,41 @@
-# YATSCF: Yet Another Tiny SCF
+# YATDFT: Yet Another Tiny DFT
 
-My final project for CSE 8803 Spring 2018, a HF-SCF program:
+A tiny library for constructing matrices used in Hartree-Fock (HF) and Kohn-Sham density functional theory (KS-DFT) using Gaussian basis sets. 
 
-* Written in C99, parallelized with OpenMP in single node ("Tiny");
-* Used [Simint](https://github.com/simint-chem/simint-generator) for ERIs;
-* Used SAD initial guess and DIIS(Pulay mixing) to accelerate SCF convergence.
+YATDFT can construct:
 
-In short, this program can be viewed as a tiny, more "formula translation" version of [GTFock](https://github.com/gtfock-chem/gtfock).
+* Core Hamiltonian matrix
+* Overlap matrix
+* Basis transformation matrix
+* Coulomb matrix
+* HF exchange matrix
+* CDIIS Pulay mixing for Fock matrix
+* Density matrix (from Fock matrix or SAD initial guess)
+* To be added: DFT exchange-correlation matrix (LDA)
 
-Current status:
+YATDFT requires:
 
-![](https://img.shields.io/badge/Same%20conv.%20behaviour%20as%20GTFock-yes-brightgreen.svg)
+* [Simint](https://github.com/simint-chem/simint-generator)
+* OpenMP and C99 supported C compiler
+* Intel MKL
 
-![](https://img.shields.io/badge/SAD%20initial%20guess-ready-brightgreen.svg)
 
-![](https://img.shields.io/badge/CDIIS%20acceleration-ready-brightgreen.svg)
 
-![](https://img.shields.io/badge/OpenMP%20parallelization-ready-brightgreen.svg)
+### README for libCMS module
 
-![](https://img.shields.io/badge/ERI%20batching-ready-brightgreen.svg)
+libCMS is a simplified version of the [libcint](https://github.com/gtfock-chem/libcint) library used by [GTFock](https://github.com/gtfock-chem/gtfock). I don't want to use the name "libcint" since it is the name of a new (after 2016) ERI library. libCMS is responsible for:
 
-![](https://img.shields.io/badge/Fock%20accum.%20opt.-ready-brightgreen.svg)
+* Parsing input molecule coordinate file, basis set file and SAD initial guess file;
+* Providing data structure and functions for storing and accessing the information of the input chemical system;
+* Providing data structure for storing shell quartet information required by Simint and functions for computing batched/non-batching ERIs using Simint.
 
-![](https://img.shields.io/badge/libCMS-ready-brightgreen.svg)
+libCMS can also be used in other programs. To use libCMS, `libCMS.h` is the header file that should be included by external programs. 
+
+
+Notice:
+
+* Input coordinates are in Angstroms;
+* The second (comment) line in the xyz file contains the net charge of the system;
+* The basis set type should be Cartesian;
+* The SCF initial guess for the density matrix is constructed from the superposition of atomic densities (SAD).  The densities for a few atoms are read automatically from the directory containing the basis set file.  These files are assumed be compatible with the basis set being used.
 

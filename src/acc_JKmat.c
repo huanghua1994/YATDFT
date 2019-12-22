@@ -28,21 +28,15 @@ static inline void update_global_JKblk(
     double *K_NQ, double *K_NQ_buf
 )
 {
-    #ifdef BUILD_K_MAT_HF
     if (write_P)
     {
         direct_add_vector(K_MP, K_MP_buf, dimM * dimP);
         direct_add_vector(K_NP, K_NP_buf, dimN * dimP);
     }
-    #endif
     
-    #ifdef BUILD_J_MAT_STD
     atomic_add_vector(J_PQ, J_PQ_buf, dimP * dimQ);
-    #endif
-    #ifdef BUILD_K_MAT_HF
     direct_add_vector(K_MQ, K_MQ_buf, dimM * dimQ);
     direct_add_vector(K_NQ, K_NQ_buf, dimN * dimQ);
-    #endif
 }
 
 void acc_JKmat(ACC_JKMAT_IN_PARAM)
@@ -121,30 +115,18 @@ void acc_JKmat(ACC_JKMAT_IN_PARAM)
                 {
                     double I = ERI[Ibase + iQ];
                     
-                    #ifdef BUILD_J_MAT_STD
                     j_MN += D_PQ[iP_dimQ + iQ] * I;
-                    #endif
-                    #ifdef BUILD_K_MAT_HF
                     k_MP += D_NQ[iN_dimQ + iQ] * I;
                     k_NP += D_MQ[iM_dimQ + iQ] * I;
-                    #endif
                     
-                    #ifdef BUILD_J_MAT_STD
                     J_PQ_buf[iP_dimQ + iQ] +=  coef1_D_MN * I;
-                    #endif
-                    #ifdef BUILD_K_MAT_HF
                     K_MQ_buf[iM_dimQ + iQ] += ncoef4_D_NP * I;
                     K_NQ_buf[iN_dimQ + iQ] += ncoef5_D_MP * I;
-                    #endif
                 }
-                #ifdef BUILD_K_MAT_HF
                 K_MP_buf[iM_dimP + iP] += coef[2] * k_MP;
                 K_NP_buf[iN_dimP + iP] += coef[3] * k_NP;
-                #endif
             }  // for (int iP = 0; iP < dimP; iP++) 
-            #ifdef BUILD_J_MAT_STD
             J_MN_buf[iM_dimN + iN] += coef[0] * j_MN;
-            #endif
         } // for (int iN = 0; iN < dimN; iN++) 
     } // for (int iM = 0; iM < dimM; iM++) 
     

@@ -27,6 +27,10 @@ typedef struct
 
 typedef ThreadKetShellpairLists* ThreadKetShellpairLists_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Initialize a KetShellpairList with a given buffer for storing P_list and Q_list
 void init_KetShellpairList_with_buffer(KetShellpairList_t ket_shellpair_list, int *PQlist_buffer);
 
@@ -50,5 +54,9 @@ void free_ThreadKetShellpairLists(ThreadKetShellpairLists_t thread_ket_sp_lists)
 
 // We don't need a reset function for ThreadKetShellpairLists, since all KetShellpairLists
 // will be checked and reset after each MN iteration
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

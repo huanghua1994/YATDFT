@@ -8,6 +8,10 @@
 #define DBL_SIZE           sizeof(double)
 #define INT_SIZE           sizeof(int)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Copy a block of source matrix to the destination matrix
 void copy_dbl_mat_blk(
     double *dst, const int ldd, const double *src, const int lds, 
@@ -18,6 +22,10 @@ void copy_dbl_mat_blk(
 double get_wtime_sec();
 
 // For debug, print a dense matrix
-void print_mat(double *mat, const int ldm, const int nrows, const int ncols, const char *mat_name);
+void print_dbl_mat(double *mat, const int ldm, const int nrows, const int ncols, const char *mat_name);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

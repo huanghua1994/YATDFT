@@ -24,7 +24,7 @@ double get_wtime_sec()
 }
 
 // For debug
-void print_mat(double *mat, const int ldm, const int nrows, const int ncols, const char *mat_name)
+void print_dbl_mat(double *mat, const int ldm, const int nrows, const int ncols, const char *mat_name)
 {
     printf("%s:\n", mat_name);
     for (int i = 0; i < nrows; i++)

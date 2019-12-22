@@ -89,6 +89,10 @@ struct TinySCF_struct
 
 typedef struct TinySCF_struct* TinySCF_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Initialize a TinySCF structure, including:
 //   (1) load molecular system and preparing ERI related data structures using libCMS;
 //   (2) allocate memory for all matrices;
@@ -104,5 +108,9 @@ void TinySCF_init(TinySCF_t *TinySCF_, char *bas_fname, char *xyz_fname);
 // Input parameter:
 //   TinySCF_ : Pointer to a TinySCF structure to be destroyed
 void TinySCF_destroy(TinySCF_t *_TinySCF);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -5,6 +5,10 @@
 
 // All matrices used in this module is row-major, leading dimension = number of columns
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Build initial density matrix using SAD (if SAD not available, D = 0)
 // Input parameter:
 //   TinySCF : Initialized TinySCF structure
@@ -21,5 +25,9 @@ void TinySCF_build_Dmat_SAD(TinySCF_t TinySCF, double *D_mat);
 //   D_mat    : Density matrix, size nbf * nbf, D = Cocc * Cocc^T
 //   Cocc_mat : Cocc matrix, size nbf * n_occ
 void TinySCF_build_Dmat_eig(TinySCF_t TinySCF, const double *F_mat, const double *X_mat, double *D_mat, double *Cocc_mat);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

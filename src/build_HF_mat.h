@@ -5,6 +5,10 @@
 
 // All matrices used in this module is row-major, size = nbf * nbf, leading dimension = nbf
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Construct core Hamiltonian, overlap, and basis transform matrices
 // Input parameter:
 //   TinySCF : Initialized TinySCF structure
@@ -38,5 +42,9 @@ void TinySCF_calc_HF_energy(
     const int mat_size, const double *D_mat, const double *Hcore_mat, const double *J_mat, 
     const double *K_mat, double *E_one_elec, double *E_two_elec, double *E_HF_exchange
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

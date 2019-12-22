@@ -1,29 +1,35 @@
 CC  = icc
-EXE = TinySCF.exe
+AR  = xiar rcs
+LIB = libYATDFT.a
 
 BLAS_LIB       = -mkl=parallel
 SIMINT_INCDIR  = /home/mkurisu/Workspace/simint/build-avx/install/include
 SIMINT_LIBFILE = /home/mkurisu/Workspace/simint/build-avx/install/lib/libsimint.a
-LIBCMS_INCDIR  = ./libCMS
-LIBCMS_LIBFILE = ./libCMS/libCMS.a
 
-DEFS    = -DBUILD_J_MAT_STD -DBUILD_K_MAT_HF
-INCS    = -I./ -I$(SIMINT_INCDIR) -I$(LIBCMS_INCDIR)
-LIBS    = $(BLAS_LIB) $(LIBCMS_LIBFILE) $(SIMINT_LIBFILE) 
+DEFS    = -D__ALIGNLEN__=64
+INCS    = -I./ -I$(SIMINT_INCDIR)
+LIBS    = $(BLAS_LIB) $(SIMINT_LIBFILE) 
 
-CFLAGS  = -Wall -g -O3 -qopenmp -std=gnu99 -xHost $(DEFS)
-LDFLAGS = -L$(LIBCMS_LIBFILE) -lpthread -qopenmp
+CFLAGS  = -Wall -g -O3 -qopenmp -std=gnu99 -xHost $(DEFS) $(BLAS_LIB)
+LDFLAGS = -lpthread -qopenmp $(BLAS_LIB)
 
-OBJS = utils.o build_Dmat.o ket_sp_list.o acc_JKmat.o build_HF_mat.o CDIIS.o TinySCF_typedef.o main.o 
+OBJS =  CMS_basis.o CMS_simint.o utils.o build_Dmat.o ket_sp_list.o \
+		acc_JKmat.o build_HF_mat.o CDIIS.o TinySCF_typedef.o
 
-$(EXE): Makefile $(OBJS) $(LIBCMS_LIBFILE) $(SIMINT_LIBFILE)
-	$(CC) $(CFLAGS) ${LDFLAGS} $(OBJS) -o $(EXE) $(LIBS)
+$(LIB): $(OBJS) 
+	$(AR) $@ $^
+
+CMS_basis.o: Makefile CMS_basis.c CMS_basis.h
+	$(CC) $(CFLAGS) $(INCS) -c CMS_basis.c -o $@ 
+
+CMS_simint.o: Makefile CMS_simint.c CMS_simint.h
+	$(CC) $(CFLAGS) $(INCS) -c CMS_simint.c -o $@ 
 
 utils.o: Makefile utils.c utils.h
 	$(CC) $(CFLAGS) $(INCS) -c utils.c -o $@ 
 
 build_Dmat.o: Makefile build_Dmat.c build_Dmat.h TinySCF_typedef.h
-	$(CC) $(CFLAGS) $(INCS) $(BLAS_LIB) -c build_Dmat.c -o $@ 
+	$(CC) $(CFLAGS) $(INCS) -c build_Dmat.c -o $@ 
 
 ket_sp_list.o: Makefile ket_sp_list.c ket_sp_list.h
 	$(CC) $(CFLAGS) $(INCS) -c ket_sp_list.c -o $@ 
@@ -38,10 +44,7 @@ CDIIS.o: Makefile CDIIS.c CDIIS.h TinySCF_typedef.h
 	$(CC) $(CFLAGS) $(INCS) -c CDIIS.c -o $@ 
 
 TinySCF_typedef.o: Makefile TinySCF_typedef.c TinySCF_typedef.h utils.h
-	$(CC) $(CFLAGS) $(INCS) $(BLAS_LIB) -c TinySCF_typedef.c -o $@ 
-	
-main.o: Makefile main.c TinySCF_typedef.h build_Dmat.h build_HF_mat.h
-	$(CC) $(CFLAGS) $(INCS) -c main.c    -o $@ 
+	$(CC) $(CFLAGS) $(INCS) -c TinySCF_typedef.c -o $@ 
 
 clean:
-	rm -f *.o $(EXE)
+	rm -f *.o $(LIB)
