@@ -14,10 +14,19 @@
 #include "TinySCF_typedef.h"
 #include "build_HF_mat.h"
 #include "build_Dmat.h"
-#include "DIIS.h"
+#include "CDIIS.h"
 
-void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname)
+// Compute screening value of each shell pair and find all 
+// unique shell pairs that survive Schwarz screening
+// Input parameter:
+//   TinySCF : Initialized TinySCF structure
+// Output parameters:
+//   TinySCF : TinySCF structure with screening info
+static void TinySCF_screen_shell_quartets(TinySCF_t TinySCF);
+
+void TinySCF_init(TinySCF_t *TinySCF_, char *bas_fname, char *xyz_fname)
 {
+    TinySCF_t TinySCF = (TinySCF_t) malloc(sizeof(struct TinySCF_struct));
     assert(TinySCF != NULL);
     
     double st = get_wtime_sec();
@@ -48,6 +57,7 @@ void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname)
     TinySCF->max_dim       = (maxAM + 1) * (maxAM + 2) / 2;
     TinySCF->prim_scrtol   = 1e-14;
     TinySCF->shell_scrtol2 = 1e-11 * 1e-11;
+    TinySCF->E_nuc_rep     = CMS_getNucEnergy(TinySCF->basis);
     printf("Job information:\n");
     printf("    basis set         = %s\n", TinySCF->bas_name);
     printf("    molecule          = %s\n", TinySCF->mol_name);
@@ -132,14 +142,15 @@ void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname)
     assert(TinySCF->eigval != NULL);
     TinySCF->mem_size += (double) ((DBL_SIZE + INT_SIZE) * TinySCF->nbf);
     
-    // Allocate memory for matrices and arrays used only in DIIS
-    size_t DIIS_row_msize = DBL_SIZE * (MAX_DIIS + 1);
+    // Allocate memory for matrices and arrays used only in CDIIS
+    int MAX_DIIS_1 = MAX_DIIS + 1;
+    size_t DIIS_row_msize = DBL_SIZE * MAX_DIIS_1;
     TinySCF->F0_mat    = (double*) ALIGN64B_MALLOC(mat_msize * MAX_DIIS);
     TinySCF->R_mat     = (double*) ALIGN64B_MALLOC(mat_msize * MAX_DIIS);
-    TinySCF->B_mat     = (double*) ALIGN64B_MALLOC(DIIS_row_msize * (MAX_DIIS + 1));
+    TinySCF->B_mat     = (double*) ALIGN64B_MALLOC(DIIS_row_msize * MAX_DIIS_1);
     TinySCF->FDS_mat   = (double*) ALIGN64B_MALLOC(mat_msize);
     TinySCF->DIIS_rhs  = (double*) ALIGN64B_MALLOC(DIIS_row_msize);
-    TinySCF->DIIS_ipiv = (int*)    ALIGN64B_MALLOC(INT_SIZE * (MAX_DIIS + 1));
+    TinySCF->DIIS_ipiv = (int*)    ALIGN64B_MALLOC(INT_SIZE * MAX_DIIS_1);
     assert(TinySCF->F0_mat    != NULL);
     assert(TinySCF->R_mat     != NULL);
     assert(TinySCF->B_mat     != NULL);
@@ -147,22 +158,20 @@ void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname)
     assert(TinySCF->DIIS_ipiv != NULL);
     TinySCF->mem_size += MAX_DIIS * 2 * (double) mat_msize;
     TinySCF->mem_size += (double) DIIS_row_msize * (MAX_DIIS + 2);
-    TinySCF->mem_size += (double) INT_SIZE * (MAX_DIIS + 1);
+    TinySCF->mem_size += (double) (INT_SIZE * MAX_DIIS_1);
     TinySCF->mem_size += (double) mat_msize;
     // Must initialize F0 and R as 0 
     memset(TinySCF->F0_mat, 0, mat_msize * MAX_DIIS);
     memset(TinySCF->R_mat,  0, mat_msize * MAX_DIIS);
     TinySCF->DIIS_len = 0;
     // Initialize B_mat
-    for (int i = 0; i < (MAX_DIIS + 1) * (MAX_DIIS + 1); i++)
-        TinySCF->B_mat[i] = -1.0;
-    for (int i = 0; i < (MAX_DIIS + 1); i++)
-        TinySCF->B_mat[i * (MAX_DIIS + 1) + i] = 0.0;
+    for (int i = 0; i < MAX_DIIS_1 * MAX_DIIS_1; i++) TinySCF->B_mat[i] = -1.0;
+    for (int i = 0; i < MAX_DIIS_1; i++) TinySCF->B_mat[i * MAX_DIIS_1 + i] = 0.0;
     TinySCF->DIIS_bmax_id = 0;
     TinySCF->DIIS_bmax    = -DBL_MAX;
 
     // Allocate memory for matrices and arrays used only in SCF iterations
-    TinySCF->ene_tol  = 1e-11;
+    TinySCF->E_tol      = 1e-10;
     TinySCF->Hcore_mat  = (double*) ALIGN64B_MALLOC(mat_msize);
     TinySCF->S_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
     TinySCF->F_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
@@ -188,14 +197,16 @@ void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname)
     // Print memory usage and time consumption
     printf("TinySCF memory usage    = %.2lf MB\n", TinySCF->mem_size / 1048576.0);
     printf("TinySCF memory allocation and initialization over, elapsed time = %.3lf (s)\n", TinySCF->init_time);
+    
+    TinySCF_screen_shell_quartets(TinySCF);
+    
+    *TinySCF_ = TinySCF;
 }
 
-void TinySCF_destroy(TinySCF_t TinySCF)
+void TinySCF_destroy(TinySCF_t *_TinySCF)
 {
+    TinySCF_t TinySCF = *_TinySCF;
     assert(TinySCF != NULL);
-    
-    // Free Fock accumulation buffer
-    ALIGN64B_FREE(TinySCF->JKacc_buf);
     
     // Free ERI info arrays
     ALIGN64B_FREE(TinySCF->valid_sp_lid);
@@ -222,7 +233,7 @@ void TinySCF_destroy(TinySCF_t TinySCF)
     ALIGN64B_FREE(TinySCF->ev_idx);
     ALIGN64B_FREE(TinySCF->eigval);
     
-    // Free matrices and temporary arrays used only in DIIS
+    // Free matrices and temporary arrays used only in CDIIS
     ALIGN64B_FREE(TinySCF->F0_mat);
     ALIGN64B_FREE(TinySCF->R_mat);
     ALIGN64B_FREE(TinySCF->B_mat);
@@ -245,6 +256,7 @@ void TinySCF_destroy(TinySCF_t TinySCF)
     CMS_destroySimint(TinySCF->simint, 1);
     
     free(TinySCF);
+    *_TinySCF = NULL;
 }
 
 static int cmp_pair(int M1, int N1, int M2, int N2)
@@ -274,7 +286,7 @@ static void quickSort(int *M, int *N, int l, int r)
     if (j > l) quickSort(M, N, l, j);
 }
 
-void TinySCF_screen_shell_quartets(TinySCF_t TinySCF)
+static void TinySCF_screen_shell_quartets(TinySCF_t TinySCF)
 {
     assert(TinySCF != NULL);
     
@@ -310,12 +322,14 @@ void TinySCF_screen_shell_quartets(TinySCF_t TinySCF)
                 {
                     // Loop over all ERIs in a shell quartet and find the max value
                     for (int iM = 0; iM < dimM; iM++)
+                    {
                         for (int iN = 0; iN < dimN; iN++)
                         {
                             int index = iN * (dimM * dimN * dimM + dimM) + iM * (dimN * dimM + 1); // Simint layout
                             double val = fabs(integrals[index]);
                             if (val > maxval) maxval = val;
                         }
+                    }
                 }
                 sp_scrval[M * nshell + N] = maxval;
                 if (maxval > global_max_scrval) global_max_scrval = maxval;
@@ -367,91 +381,3 @@ void TinySCF_screen_shell_quartets(TinySCF_t TinySCF)
     // Print runtime
     printf("TinySCF precompute shell screening info over,      elapsed time = %.3lf (s)\n", TinySCF->shell_scr_time);
 }
-
-// Compute Hartree-Fock energy
-static void TinySCF_calc_energy(TinySCF_t TinySCF)
-{
-    double energy = 0.0;
-    
-    #pragma omp simd 
-    for (int i = 0; i < TinySCF->mat_size; i++)
-        energy += TinySCF->D_mat[i] * (TinySCF->F_mat[i] + TinySCF->Hcore_mat[i]);
-    
-    TinySCF->HF_energy = energy;
-}
-
-void TinySCF_do_SCF(TinySCF_t TinySCF, const int max_iter)
-{
-    // Start SCF iterations
-    printf("TinySCF SCF iteration started...\n");
-    printf("Nuclear energy = %.10lf\n", TinySCF->nuc_energy);
-    TinySCF->iter = 0;
-    TinySCF->max_iter = max_iter;
-    double prev_energy  = 0;
-    double energy_delta = 223;
-    
-    int    nbf        = TinySCF->nbf;
-    int    mat_size   = TinySCF->mat_size;
-    double *D_mat     = TinySCF->D_mat;
-    double *J_mat     = TinySCF->J_mat;
-    double *K_mat     = TinySCF->K_mat;
-    double *F_mat     = TinySCF->F_mat;
-    double *X_mat     = TinySCF->X_mat;
-    double *S_mat     = TinySCF->S_mat;
-    double *Hcore_mat = TinySCF->Hcore_mat;
-    double *Cocc_mat  = TinySCF->Cocc_mat;
-
-    while ((TinySCF->iter < TinySCF->max_iter) && (energy_delta >= TinySCF->ene_tol))
-    {
-        printf("--------------- Iteration %d ---------------\n", TinySCF->iter);
-        
-        double st0, et0, st1, et1, st2;
-        st0 = get_wtime_sec();
-        
-        // Build the Fock matrix
-        st1 = get_wtime_sec();
-        TinySCF_build_JKmat(TinySCF, D_mat, J_mat, K_mat);
-        #pragma omp for simd
-        for (int i = 0; i < mat_size; i++)
-            F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] - K_mat[i];
-        et1 = get_wtime_sec();
-        printf("* Build Fock matrix     : %.3lf (s)\n", et1 - st1);
-        
-        // Calculate new system energy
-        st1 = get_wtime_sec();
-        TinySCF_calc_energy(TinySCF);
-        et1 = get_wtime_sec();
-        printf("* Calculate energy      : %.3lf (s)\n", et1 - st1);
-        energy_delta = fabs(TinySCF->HF_energy - prev_energy);
-        prev_energy = TinySCF->HF_energy;
-        
-        // DIIS acceleration (Pulay mixing)
-        st1 = get_wtime_sec();
-        TinySCF_DIIS(TinySCF, X_mat, S_mat, D_mat, F_mat);
-        et1 = get_wtime_sec();
-        printf("* DIIS procedure        : %.3lf (s)\n", et1 - st1);
-        
-        // Diagonalize and build the density matrix
-        st1 = get_wtime_sec();
-        TinySCF_build_Dmat_eig(TinySCF, F_mat, X_mat, D_mat, Cocc_mat);
-        et1 = get_wtime_sec(); 
-        printf("* Build density matrix  : %.3lf (s)\n", et1 - st1);
-        
-        et0 = get_wtime_sec();
-        
-        printf("* Iteration runtime     = %.3lf (s)\n", et0 - st0);
-        printf("* Energy = %.10lf (%.10lf)", TinySCF->HF_energy + TinySCF->nuc_energy, TinySCF->HF_energy);
-        if (TinySCF->iter > 0) 
-        {
-            printf(", delta = %e\n", energy_delta); 
-        } else 
-        {
-            printf("\n");
-            energy_delta = 223;  // Prevent the SCF exit after 1st iteration when no SAD initial guess
-        }
-        
-        TinySCF->iter++;
-    }
-    printf("--------------- SCF iterations finished ---------------\n");
-}
-

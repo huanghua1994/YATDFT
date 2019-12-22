@@ -4,9 +4,6 @@
 #include <omp.h>
 #include "libCMS.h"
 
-#define MAX_DIIS 10
-#define MIN_DIIS 2
-
 // Tiny SCF engine
 struct TinySCF_struct 
 {
@@ -48,13 +45,13 @@ struct TinySCF_struct
     double *FN_strip_buf;   // Thread-private buffer for F_NP and F_NQ blocks with the same N
 
     // Temporary matrices used in multiple modules
-    double *tmp_mat;        // build_Dmat, DIIS
+    double *tmp_mat;        // build_Dmat, CDIIS
 
     // Matrices and arrays used only in build_Dmat
     int    *ev_idx;         // Index of eigenvalues, for sorting
     double *eigval;         // Eigenvalues for building density matrix
 
-    // Matrices and arrays used only in DIIS
+    // Matrices and arrays used only in CDIIS
     int    DIIS_len;        // Number of previous F matrices
     int    DIIS_bmax_id;    // The ID of a previous F matrix whose residual has the largest 2-norm
     int    *DIIS_ipiv;      // Permutation info for DGESV in DIIS
@@ -65,14 +62,7 @@ struct TinySCF_struct
     double *FDS_mat;        // F * D * S matrix in Commutator DIIS
     double *DIIS_rhs;       // Linear system right-hand-side vector in DIIS
 
-    // SCF iteration info
-    int    max_iter;        // Maximum SCF iteration
-    int    iter;            // Current SCF iteration
-    double nuc_energy;      // Nuclear energy
-    double HF_energy;       // Hartree-Fock energy
-    double ene_tol;         // SCF termination criteria for energy change
-    
-    // Matrices and arrays in SCF
+    // Matrices and arrays used in SCF
     double *Hcore_mat;      // Core Hamiltonian matrix
     double *S_mat;          // Overlap matrix
     double *F_mat;          // Fock matrix
@@ -81,6 +71,17 @@ struct TinySCF_struct
     double *K_mat;          // Exchange matrix
     double *X_mat;          // Basis transformation matrix
     double *Cocc_mat;       // Factor of density matrix
+
+    // Calculated energies
+    double E_nuc_rep;       // Nuclear repulsion energy
+    double E_one_elec;      // One-electron integral energy, == sum(sum(2 .* D .* Hcore))
+    double E_two_elec;      // Two-electron integral energy, == sum(sum(2 .* D .* J))
+    double E_HF_exchange;   // Hartree-Fock exchange energy, == sum(sum(-D .* K))
+
+    // SCF iteration info
+    int    max_iter;        // Maximum SCF iteration
+    int    iter;            // Current SCF iteration
+    double E_tol;           // SCF termination criteria for energy change
     
     // Statistic 
     double mem_size, init_time, S_Hcore_time, shell_scr_time;
@@ -88,19 +89,20 @@ struct TinySCF_struct
 
 typedef struct TinySCF_struct* TinySCF_t;
 
-// Initialize TinySCF with a Cartesian basis set file (.gbs format), a molecule 
-// coordinate file and the number of SCF iterations (handled by libcint), and
-// allocate all memory for other calculation
-void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname);
+// Initialize a TinySCF structure, including:
+//   (1) load molecular system and preparing ERI related data structures using libCMS;
+//   (2) allocate memory for all matrices;
+//   (3) perform Schwarz screening for shell pairs.
+// Input parameters:
+//   bas_fname : Gaussian basis set file name (.gbs)
+//   xyz_fname : Molecule coordinate file name
+// Output parameter:
+//   TinySCF_ : Pointer to a initialized TinySCF structure
+void TinySCF_init(TinySCF_t *TinySCF_, char *bas_fname, char *xyz_fname);
 
-// Compute the screening values of each shell quartet and the unique shell pairs
-// that survive screening using Schwarz inequality
-void TinySCF_screen_shell_quartets(TinySCF_t TinySCF);
-
-// Perform SCF iterations
-void TinySCF_do_SCF(TinySCF_t TinySCF, const int max_iter);
-
-// Destroy TinySCF, free all allocated memory
-void TinySCF_destroy(TinySCF_t TinySCF);
+// Destroy a TinySCF structure
+// Input parameter:
+//   TinySCF_ : Pointer to a TinySCF structure to be destroyed
+void TinySCF_destroy(TinySCF_t *_TinySCF);
 
 #endif

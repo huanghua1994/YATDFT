@@ -282,8 +282,8 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
                     
                     // Reset the computed ket-side shell pair list
                     target_shellpair_list->npairs = 0;
-                }  // if (target_shellpair_list->npairs == MAX_LIST_SIZE)
-            }  // for (int PQ = 0; PQ < num_valid_sp; PQ++)
+                }  // End of "if (target_shellpair_list->npairs == MAX_LIST_SIZE)"
+            }  // End of PQ loop
             
             // Handles all non-empty ket-side shell pair lists
             for (int ket_id = 0; ket_id < MAX_AM_PAIRS; ket_id++)
@@ -324,8 +324,8 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
                     
                     // Reset the computed ket-side shell pair list
                     target_shellpair_list->npairs = 0;
-                }  // if (target_shellpair_list->npairs > 0)
-            }  // for (int ket_id = 0; ket_id < MAX_AM_PAIRS; ket_id++)
+                }  // End of "if (target_shellpair_list->npairs > 0)"
+            }  // End of ket_id loop
             
             // Accumulate thread-local J and K results to global J and K mat
             #ifdef BUILD_J_MAT_STD
@@ -353,7 +353,7 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
                 }
             }
             #endif
-        }  // for (int MN = 0; MN < num_valid_sp; MN++)
+        }  // End of MN loop
         
         TinySCF_JKblkmat_to_JKmat(
             J_mat, K_mat, J_blk_mat, K_blk_mat, 
@@ -363,5 +363,40 @@ void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, 
         
         CMS_Simint_freeThreadMultishellpair(&thread_multi_shellpair);
         free_ThreadKetShellpairLists(thread_ksp_lists);
+    }  // End of "#pragma omp parallel"
+}
+
+void TinySCF_calc_HF_energy(
+    const int mat_size, const double *D_mat, const double *Hcore_mat, const double *J_mat, 
+    const double *K_mat, double *E_one_elec, double *E_two_elec, double *E_HF_exchange
+)
+{
+    double Eoe = 0.0, Ete = 0.0, Exc = 0.0;
+    if (K_mat != NULL)
+    {
+        #pragma omp parallel for simd reduction(+:Eoe, Ete, Exc)
+        for (int i = 0; i < mat_size; i++)
+        {
+            Eoe += D_mat[i] * Hcore_mat[i];
+            Ete += D_mat[i] * J_mat[i];
+            Exc += D_mat[i] * K_mat[i];
+        }
+        Eoe *= 2.0;
+        Ete *= 2.0;
+        Exc *= -1.0;
+        *E_one_elec    = Eoe;
+        *E_two_elec    = Ete;
+        *E_HF_exchange = Exc;
+    } else {
+        #pragma omp parallel for simd reduction(+:Eoe, Ete)
+        for (int i = 0; i < mat_size; i++)
+        {
+            Eoe += D_mat[i] * Hcore_mat[i];
+            Ete += D_mat[i] * J_mat[i];
+        }
+        Eoe *= 2.0;
+        Ete *= 2.0;
+        *E_one_elec = Eoe;
+        *E_two_elec = Ete;
     }
 }

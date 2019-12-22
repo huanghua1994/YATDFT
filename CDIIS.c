@@ -5,10 +5,11 @@
 
 #include <mkl.h>
 
-#include "utils.h"
 #include "TinySCF_typedef.h"
+#include "CDIIS.h"
+#include "utils.h"
 
-void TinySCF_DIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat)
+void TinySCF_CDIIS(TinySCF_t TinySCF, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat)
 {
     int    nbf       = TinySCF->nbf;
     int    mat_size  = TinySCF->mat_size;

@@ -14,7 +14,7 @@ LIBS    = $(BLAS_LIB) $(LIBCMS_LIBFILE) $(SIMINT_LIBFILE)
 CFLAGS  = -Wall -g -O3 -qopenmp -std=gnu99 -xHost $(DEFS)
 LDFLAGS = -L$(LIBCMS_LIBFILE) -lpthread -qopenmp
 
-OBJS = utils.o build_Dmat.o ket_sp_list.o acc_JKmat.o build_HF_mat.o DIIS.o TinySCF_typedef.o main.o 
+OBJS = utils.o build_Dmat.o ket_sp_list.o acc_JKmat.o build_HF_mat.o CDIIS.o TinySCF_typedef.o main.o 
 
 $(EXE): Makefile $(OBJS) $(LIBCMS_LIBFILE) $(SIMINT_LIBFILE)
 	$(CC) $(CFLAGS) ${LDFLAGS} $(OBJS) -o $(EXE) $(LIBS)
@@ -34,8 +34,8 @@ acc_JKmat.o: Makefile acc_JKmat.h acc_JKmat.c TinySCF_typedef.h
 build_HF_mat.o: Makefile build_HF_mat.c build_HF_mat.h TinySCF_typedef.h ket_sp_list.h
 	$(CC) $(CFLAGS) $(INCS) -c build_HF_mat.c -o $@ 
 
-DIIS.o: Makefile DIIS.c DIIS.h TinySCF_typedef.h
-	$(CC) $(CFLAGS) $(INCS) -c DIIS.c -o $@ 
+CDIIS.o: Makefile CDIIS.c CDIIS.h TinySCF_typedef.h
+	$(CC) $(CFLAGS) $(INCS) -c CDIIS.c -o $@ 
 
 TinySCF_typedef.o: Makefile TinySCF_typedef.c TinySCF_typedef.h utils.h
 	$(CC) $(CFLAGS) $(INCS) $(BLAS_LIB) -c TinySCF_typedef.c -o $@ 
