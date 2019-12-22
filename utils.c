@@ -5,8 +5,8 @@
 
 #include "utils.h"
 
-void copy_matrix_block(
-    double *dst, const int ldd, double *src, const int lds, 
+void copy_dbl_mat_blk(
+    double *dst, const int ldd, const double *src, const int lds, 
     const int nrows, const int ncols
 )
 {

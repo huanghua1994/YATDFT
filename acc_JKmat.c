@@ -2,7 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include "TinySCF.h"
-#include "Accum_Fock.h"
+#include "acc_JKmat.h"
 
 static inline void unique_integral_coef(int M, int N, int P, int Q, double *coef)
 {
@@ -21,7 +21,7 @@ static inline void unique_integral_coef(int M, int N, int P, int Q, double *coef
     coef[5] = flag4 + flag7;  // for K_NQ
 }
 
-static inline void update_global_blocks(
+static inline void update_global_JKblk(
     int dimM, int dimN, int dimP, int dimQ, int write_P,
     double *K_MP, double *K_MP_buf, double *K_NP, double *K_NP_buf, 
     double *J_PQ, double *J_PQ_buf, double *K_MQ, double *K_MQ_buf, 
@@ -45,21 +45,25 @@ static inline void update_global_blocks(
     #endif
 }
 
-void Accum_Fock(ACCUM_FOCK_IN_PARAM)
+void acc_JKmat(ACC_JKMAT_IN_PARAM)
 {
-    // Set matrix size info
-    int nbf  = TinySCF->nbf;
-    int dimM = TinySCF->shell_bf_num[M];
-    int dimN = TinySCF->shell_bf_num[N];
-    int dimP = TinySCF->shell_bf_num[P];
-    int dimQ = TinySCF->shell_bf_num[Q];
-    int nshell = TinySCF->nshell;
-    
+    int nbf           = TinySCF->nbf;
+    int nshell        = TinySCF->nshell;
+    int max_JKacc_buf = TinySCF->max_JKacc_buf;
+    int *shell_bf_num = TinySCF->shell_bf_num;
     int *blk_mat_ptr  = TinySCF->blk_mat_ptr;
+    double *J_blk_mat = TinySCF->J_blk_mat;
     double *D_blk_mat = TinySCF->D_blk_mat;
+    double *JKacc_buf = TinySCF->JKacc_buf;
+    
+    // Set matrix size info
+    int dimM = shell_bf_num[M];
+    int dimN = shell_bf_num[N];
+    int dimP = shell_bf_num[P];
+    int dimQ = shell_bf_num[Q];
     
     // Set global matrix pointers
-    double *J_PQ = TinySCF->J_blk_mat + TinySCF->blk_mat_ptr[P * nshell + Q];
+    double *J_PQ = J_blk_mat + blk_mat_ptr[P * nshell + Q];
     double *K_MP = FM_strip_buf + (blk_mat_ptr[M * nshell + P] - FM_strip_offset); 
     double *K_NP = FN_strip_buf + (blk_mat_ptr[N * nshell + P] - FN_strip_offset);
     double *K_MQ = FM_strip_buf + (blk_mat_ptr[M * nshell + Q] - FM_strip_offset);
@@ -73,9 +77,9 @@ void Accum_Fock(ACCUM_FOCK_IN_PARAM)
     double *D_NQ = D_blk_mat + blk_mat_ptr[N * nshell + Q];
     
     // Set buffer pointer
-    double *thread_buf = TinySCF->Accum_Fock_buf + tid * TinySCF->max_buf_size;
+    double *thread_buf = JKacc_buf + tid * max_JKacc_buf;
     int required_buf_size = (dimP + dimN + dimM) * dimQ + (dimP + dimN + dimM) * dimQ;
-    assert(required_buf_size <= TinySCF->max_buf_size);
+    assert(required_buf_size <= max_JKacc_buf);
     double *write_buf = thread_buf;
     double *J_MN_buf = write_buf;  write_buf += dimM * dimN;
     double *K_MP_buf = write_buf;  write_buf += dimM * dimP;
@@ -86,7 +90,7 @@ void Accum_Fock(ACCUM_FOCK_IN_PARAM)
 
     // Reset result buffer
     //if (load_MN) memset(J_MN_buf, 0, sizeof(double) * dimM * dimN);
-    if (load_P)  memset(K_MP_buf, 0, sizeof(double) * dimP * (dimM + dimN));
+    if (load_P) memset(K_MP_buf, 0, sizeof(double) * dimP * (dimM + dimN));
     memset(J_PQ_buf, 0, sizeof(double) * dimQ * (dimM + dimN + dimP));
     
     // Get uniqueness ERI symmetric 
@@ -145,9 +149,48 @@ void Accum_Fock(ACCUM_FOCK_IN_PARAM)
     } // for (int iM = 0; iM < dimM; iM++) 
     
     // Update to global array using atomic_add_f64()
-    update_global_blocks(
+    update_global_JKblk(
         dimM, dimN, dimP, dimQ, write_P,
         K_MP, K_MP_buf, K_NP, K_NP_buf,
         J_PQ, J_PQ_buf, K_MQ, K_MQ_buf, K_NQ, K_NQ_buf
     );
+}
+
+#define ACCUM_FOCK_PARAM    TinySCF, tid, M, N, P_list[ipair], Q_list[ipair], \
+                            ERIs + ipair * nints, load_P, write_P, \
+                            FM_strip_buf, FM_strip_offset, \
+                            FN_strip_buf, FN_strip_offset
+
+void acc_JKmat_with_ket_sp_list(
+    TinySCF_t TinySCF, int tid, int M, int N, 
+    int *P_list, int *Q_list, int npairs, double *ERIs, int nints,
+    double *FM_strip_buf, double *FN_strip_buf,
+    int *Mpair_flag, int *Npair_flag
+)
+{
+    int nshell = TinySCF->nshell;
+    int *mat_blk_ptr = TinySCF->blk_mat_ptr;
+    int load_P, write_P, prev_P = -1;
+    int FM_strip_offset = mat_blk_ptr[M * nshell];
+    int FN_strip_offset = mat_blk_ptr[N * nshell];
+    for (int ipair = 0; ipair < npairs; ipair++)
+    {
+        int curr_P = P_list[ipair];
+        int curr_Q = Q_list[ipair];
+        Mpair_flag[curr_P] = 1;
+        Mpair_flag[curr_Q] = 1;
+        Npair_flag[curr_P] = 1;
+        Npair_flag[curr_Q] = 1;
+        
+        load_P  = (prev_P == curr_P) ? 0 : 1;
+        write_P = 0;
+        if (ipair == npairs - 1)
+        {
+            write_P = 1;
+        } else {
+            if (curr_P != P_list[ipair + 1]) write_P = 1;
+        }
+        prev_P = curr_P;
+        acc_JKmat(ACCUM_FOCK_PARAM);
+    }
 }

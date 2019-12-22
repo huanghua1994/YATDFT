@@ -12,13 +12,13 @@
 #include "libCMS.h"
 #include "utils.h"
 #include "TinySCF.h"
-#include "build_Fock.h"
-#include "build_density.h"
+#include "build_HF_mat.h"
+#include "build_Dmat.h"
 #include "DIIS.h"
 
 // This file only contains functions that initializing TinySCF engine, precomputing reusable 
 // matrices and arrays and destroying TinySCF engine. Most time consuming functions are in
-// build_Fock.c, build_density.c and DIIS.c
+// build_HF_mat.c, build_density.c and DIIS.c
 
 void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname, const int max_iter)
 {
@@ -59,11 +59,11 @@ void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname, const int
     TinySCF->max_dim = (maxAM + 1) * (maxAM + 2) / 2;
     max_buf_entry_size      = TinySCF->max_dim * TinySCF->max_dim;
     TinySCF->nthreads       = omp_get_max_threads();
-    TinySCF->max_buf_size   = max_buf_entry_size * 6;
-    total_buf_size          = TinySCF->max_buf_size * TinySCF->nthreads;
-    TinySCF->Accum_Fock_buf = ALIGN64B_MALLOC(DBL_SIZE * total_buf_size);
-    assert(TinySCF->Accum_Fock_buf);
-    TinySCF->mem_size += (double) TinySCF->max_buf_size;
+    TinySCF->max_JKacc_buf   = max_buf_entry_size * 6;
+    total_buf_size          = TinySCF->max_JKacc_buf * TinySCF->nthreads;
+    TinySCF->JKacc_buf = ALIGN64B_MALLOC(DBL_SIZE * total_buf_size);
+    assert(TinySCF->JKacc_buf);
+    TinySCF->mem_size += (double) TinySCF->max_JKacc_buf;
     
     // Compute auxiliary variables
     TinySCF->num_total_sp = TinySCF->nshell   * TinySCF->nshell;
@@ -111,8 +111,6 @@ void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname, const int
     TinySCF->K_mat      = (double*) ALIGN64B_MALLOC(mat_mem_size);
     TinySCF->X_mat      = (double*) ALIGN64B_MALLOC(mat_mem_size);
     TinySCF->tmp_mat    = (double*) ALIGN64B_MALLOC(mat_mem_size);
-    TinySCF->D2_mat     = (double*) ALIGN64B_MALLOC(mat_mem_size);
-    TinySCF->D3_mat     = (double*) ALIGN64B_MALLOC(mat_mem_size);
     TinySCF->Cocc_mat   = (double*) ALIGN64B_MALLOC(DBL_SIZE * TinySCF->n_occ * TinySCF->nbf);
     TinySCF->eigval     = (double*) ALIGN64B_MALLOC(DBL_SIZE * TinySCF->nbf);
     TinySCF->ev_idx     = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinySCF->nbf);
@@ -124,8 +122,6 @@ void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname, const int
     assert(TinySCF->K_mat     != NULL);
     assert(TinySCF->X_mat     != NULL);
     assert(TinySCF->tmp_mat   != NULL);
-    assert(TinySCF->D2_mat    != NULL);
-    assert(TinySCF->D3_mat    != NULL);
     assert(TinySCF->Cocc_mat  != NULL);
     assert(TinySCF->eigval    != NULL);
     TinySCF->mem_size += (double) (10 * mat_mem_size);
@@ -143,14 +139,14 @@ void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname, const int
     TinySCF->FN_strip_buf = (double*) ALIGN64B_MALLOC(MN_band_mem_size * TinySCF->nthreads);
     TinySCF->Mpair_flag  = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinySCF->nshell * TinySCF->nthreads);
     TinySCF->Npair_flag  = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinySCF->nshell * TinySCF->nthreads);
-    assert(TinySCF->blk_mat_ptr   != NULL);
-    assert(TinySCF->J_blk_mat     != NULL);
-    assert(TinySCF->K_blk_mat     != NULL);
-    assert(TinySCF->D_blk_mat     != NULL);
+    assert(TinySCF->blk_mat_ptr  != NULL);
+    assert(TinySCF->J_blk_mat    != NULL);
+    assert(TinySCF->K_blk_mat    != NULL);
+    assert(TinySCF->D_blk_mat    != NULL);
     assert(TinySCF->FM_strip_buf != NULL);
     assert(TinySCF->FN_strip_buf != NULL);
-    assert(TinySCF->Mpair_flag  != NULL);
-    assert(TinySCF->Npair_flag  != NULL);
+    assert(TinySCF->Mpair_flag   != NULL);
+    assert(TinySCF->Npair_flag   != NULL);
     TinySCF->mem_size += (double) (3 * mat_mem_size);
     TinySCF->mem_size += (double) (INT_SIZE * TinySCF->num_total_sp);
     TinySCF->mem_size += (double) (2 * MN_band_mem_size * TinySCF->nthreads);
@@ -208,7 +204,7 @@ void TinySCF_destroy(TinySCF_t TinySCF)
     assert(TinySCF != NULL);
     
     // Free Fock accumulation buffer
-    ALIGN64B_FREE(TinySCF->Accum_Fock_buf);
+    ALIGN64B_FREE(TinySCF->JKacc_buf);
     
     // Free shell quartet screening arrays
     ALIGN64B_FREE(TinySCF->sp_scrval);
@@ -228,8 +224,6 @@ void TinySCF_destroy(TinySCF_t TinySCF)
     ALIGN64B_FREE(TinySCF->K_mat);
     ALIGN64B_FREE(TinySCF->X_mat);
     ALIGN64B_FREE(TinySCF->tmp_mat);
-    ALIGN64B_FREE(TinySCF->D2_mat);
-    ALIGN64B_FREE(TinySCF->D3_mat);
     ALIGN64B_FREE(TinySCF->Cocc_mat);
     ALIGN64B_FREE(TinySCF->eigval);
     ALIGN64B_FREE(TinySCF->ev_idx);
@@ -394,7 +388,7 @@ void TinySCF_get_initial_guess(TinySCF_t TinySCF)
             CMS_getInitialGuess(TinySCF->basis, i, &guess, &spos, &epos);
             ldg = epos - spos + 1;
             double *D_mat_ptr = TinySCF->D_mat + spos * nbf + spos;
-            copy_matrix_block(D_mat_ptr, nbf, guess, ldg, ldg, ldg);
+            copy_dbl_mat_blk(D_mat_ptr, nbf, guess, ldg, ldg, ldg);
         }
     }
     
@@ -433,7 +427,15 @@ void TinySCF_do_SCF(TinySCF_t TinySCF)
     double prev_energy  = 0;
     double energy_delta = 223;
     
-    int nbf = TinySCF->nbf;
+    int    nbf        = TinySCF->nbf;
+    int    mat_size   = TinySCF->mat_size;
+    double *D_mat     = TinySCF->D_mat;
+    double *J_mat     = TinySCF->J_mat;
+    double *K_mat     = TinySCF->K_mat;
+    double *F_mat     = TinySCF->F_mat;
+    double *X_mat     = TinySCF->X_mat;
+    double *Hcore_mat = TinySCF->Hcore_mat;
+    double *Cocc_mat  = TinySCF->Cocc_mat;
 
     while ((TinySCF->iter < TinySCF->max_iter) && (energy_delta >= TinySCF->ene_tol))
     {
@@ -444,7 +446,10 @@ void TinySCF_do_SCF(TinySCF_t TinySCF)
         
         // Build the Fock matrix
         st1 = get_wtime_sec();
-        TinySCF_build_FockMat(TinySCF);
+        TinySCF_build_JKmat(TinySCF, D_mat, J_mat, K_mat);
+        #pragma omp for simd
+        for (int i = 0; i < mat_size; i++)
+            F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] - K_mat[i];
         et1 = get_wtime_sec();
         printf("* Build Fock matrix     : %.3lf (s)\n", et1 - st1);
         
@@ -464,7 +469,7 @@ void TinySCF_do_SCF(TinySCF_t TinySCF)
         
         // Diagonalize and build the density matrix
         st1 = get_wtime_sec();
-        TinySCF_build_DenMat(TinySCF);
+        TinySCF_build_Dmat_eig(TinySCF, F_mat, X_mat, D_mat, Cocc_mat);
         et1 = get_wtime_sec(); 
         printf("* Build density matrix  : %.3lf (s)\n", et1 - st1);
         

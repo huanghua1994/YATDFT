@@ -14,7 +14,7 @@ LIBS    = $(BLAS_LIB) $(LIBCMS_LIBFILE) $(SIMINT_LIBFILE)
 CFLAGS  = -Wall -g -O3 -qopenmp -std=gnu99 -xHost $(DEFS)
 LDFLAGS = -L$(LIBCMS_LIBFILE) -lpthread -qopenmp
 
-OBJS = utils.o build_density.o shell_quartet_list.o Accum_Fock.o build_Fock.o DIIS.o TinySCF.o main.o 
+OBJS = utils.o build_Dmat.o ket_sp_list.o acc_JKmat.o build_HF_mat.o DIIS.o TinySCF.o main.o 
 
 $(EXE): Makefile $(OBJS) $(LIBCMS_LIBFILE) $(SIMINT_LIBFILE)
 	$(CC) $(CFLAGS) ${LDFLAGS} $(OBJS) -o $(EXE) $(LIBS)
@@ -22,17 +22,17 @@ $(EXE): Makefile $(OBJS) $(LIBCMS_LIBFILE) $(SIMINT_LIBFILE)
 utils.o: Makefile utils.c utils.h
 	$(CC) $(CFLAGS) $(INCS) -c utils.c -o $@ 
 
-build_density.o: Makefile build_density.c build_density.h TinySCF.h
-	$(CC) $(CFLAGS) $(INCS) $(BLAS_LIB) -c build_density.c -o $@ 
+build_Dmat.o: Makefile build_Dmat.c build_Dmat.h TinySCF.h
+	$(CC) $(CFLAGS) $(INCS) $(BLAS_LIB) -c build_Dmat.c -o $@ 
 
-shell_quartet_list.o: Makefile shell_quartet_list.c shell_quartet_list.h
-	$(CC) $(CFLAGS) $(INCS) -c shell_quartet_list.c -o $@ 
+ket_sp_list.o: Makefile ket_sp_list.c ket_sp_list.h
+	$(CC) $(CFLAGS) $(INCS) -c ket_sp_list.c -o $@ 
 
-Accum_Fock.o: Makefile Accum_Fock.h Accum_Fock.c TinySCF.h
-	$(CC) $(CFLAGS) $(INCS) -c Accum_Fock.c -o $@ 
+acc_JKmat.o: Makefile acc_JKmat.h acc_JKmat.c TinySCF.h
+	$(CC) $(CFLAGS) $(INCS) -c acc_JKmat.c -o $@ 
 
-build_Fock.o: Makefile build_Fock.c build_Fock.h TinySCF.h shell_quartet_list.h
-	$(CC) $(CFLAGS) $(INCS) -c build_Fock.c -o $@ 
+build_HF_mat.o: Makefile build_HF_mat.c build_HF_mat.h TinySCF.h ket_sp_list.h
+	$(CC) $(CFLAGS) $(INCS) -c build_HF_mat.c -o $@ 
 
 DIIS.o: Makefile DIIS.c DIIS.h TinySCF.h
 	$(CC) $(CFLAGS) $(INCS) -c DIIS.c -o $@ 

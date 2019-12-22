@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "shell_quartet_list.h"
+#include "ket_sp_list.h"
 
 // Sanity check for parameters is skipped for better performance
 

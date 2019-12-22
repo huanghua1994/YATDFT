@@ -9,12 +9,12 @@
 
 #include "utils.h"
 #include "TinySCF.h"
-#include "build_Fock.h"
-#include "shell_quartet_list.h"
-#include "Accum_Fock.h"
+#include "build_HF_mat.h"
+#include "ket_sp_list.h"
+#include "acc_JKmat.h"
 #include "libCMS.h"
 
-void TinySCF_build_Hcore_S_X(TinySCF_t TinySCF, double *Hcore_mat, double *S_mat, double *X_mat)
+void TinySCF_build_Hcore_S_X_mat(TinySCF_t TinySCF, double *Hcore_mat, double *S_mat, double *X_mat)
 {
     assert(TinySCF != NULL);
     
@@ -46,11 +46,11 @@ void TinySCF_build_Hcore_S_X(TinySCF_t TinySCF, double *Hcore_mat, double *S_mat
             
             // Compute the contribution of current shell pair to core Hamiltonian matrix
             CMS_computePairOvl_Simint(basis, simint, tid, M, N, &integrals, &nints);
-            if (nints > 0) copy_matrix_block(S_ptr, nbf, integrals, ncols, nrows, ncols);
+            if (nints > 0) copy_dbl_mat_blk(S_ptr, nbf, integrals, ncols, nrows, ncols);
             
             // Compute the contribution of current shell pair to overlap matrix
             CMS_computePairCoreH_Simint(basis, simint, tid, M, N, &integrals, &nints);
-            if (nints > 0) copy_matrix_block(Hcore_ptr, nbf, integrals, ncols, nrows, ncols);
+            if (nints > 0) copy_dbl_mat_blk(Hcore_ptr, nbf, integrals, ncols, nrows, ncols);
         }
     }
     
@@ -77,45 +77,6 @@ void TinySCF_build_Hcore_S_X(TinySCF_t TinySCF, double *Hcore_mat, double *S_mat
         1.0, U0_mat, nbf, U_mat, nbf, 0.0, X_mat, nbf
     );
     free(workbuf);
-}
-
-#define ACCUM_FOCK_PARAM    TinySCF, tid, M, N, P_list[ipair], Q_list[ipair], \
-                            ERIs + ipair * nints, load_P, write_P, \
-                            FM_strip_buf, FM_strip_offset, \
-                            FN_strip_buf, FN_strip_offset
-
-void Accum_Fock_with_KetshellpairList(
-    TinySCF_t TinySCF, int tid, int M, int N, 
-    int *P_list, int *Q_list, int npairs, double *ERIs, int nints,
-    double *FM_strip_buf, double *FN_strip_buf,
-    int *Mpair_flag, int *Npair_flag
-)
-{
-    int nshell = TinySCF->nshell;
-    int *mat_blk_ptr = TinySCF->blk_mat_ptr;
-    int load_P, write_P, prev_P = -1;
-    int FM_strip_offset = mat_blk_ptr[M * nshell];
-    int FN_strip_offset = mat_blk_ptr[N * nshell];
-    for (int ipair = 0; ipair < npairs; ipair++)
-    {
-        int curr_P = P_list[ipair];
-        int curr_Q = Q_list[ipair];
-        Mpair_flag[curr_P] = 1;
-        Mpair_flag[curr_Q] = 1;
-        Npair_flag[curr_P] = 1;
-        Npair_flag[curr_Q] = 1;
-        
-        load_P  = (prev_P == curr_P) ? 0 : 1;
-        write_P = 0;
-        if (ipair == npairs - 1)
-        {
-            write_P = 1;
-        } else {
-            if (curr_P != P_list[ipair + 1]) write_P = 1;
-        }
-        prev_P = curr_P;
-        Accum_Fock(ACCUM_FOCK_PARAM);
-    }
 }
 
 // Get the final J and K matrices: J = (J + J^T) / 2, K = (K + K^T) / 2
@@ -152,7 +113,7 @@ static void TinySCF_JKblkmat_to_JKmat(
         {
             int Jblk_offset = blk_mat_ptr[i * nshell + j];
             int J_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
-            copy_matrix_block(
+            copy_dbl_mat_blk(
                 J_mat + J_offset, nbf, J_blk_mat + Jblk_offset, shell_bf_num[j],
                 shell_bf_num[i], shell_bf_num[j]
             );
@@ -168,7 +129,7 @@ static void TinySCF_JKblkmat_to_JKmat(
         {
             int Kblk_offset = blk_mat_ptr[i * nshell + j];
             int K_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
-            copy_matrix_block(
+            copy_dbl_mat_blk(
                 K_mat + K_offset, nbf, K_blk_mat + Kblk_offset, shell_bf_num[j],
                 shell_bf_num[i], shell_bf_num[j]
             );
@@ -178,7 +139,7 @@ static void TinySCF_JKblkmat_to_JKmat(
 }
 
 static void TinySCF_Dmat_to_Dblkmat(
-    double *D_mat, double *D_blk_mat, int *blk_mat_ptr, 
+    const double *D_mat, double *D_blk_mat, int *blk_mat_ptr, 
     int *shell_bf_num, int *shell_bf_sind, int nshell, int nbf
 )
 {
@@ -189,7 +150,7 @@ static void TinySCF_Dmat_to_Dblkmat(
         {
             int Dblk_offset = blk_mat_ptr[i * nshell + j];
             int D_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
-            copy_matrix_block(
+            copy_dbl_mat_blk(
                 D_blk_mat + Dblk_offset, shell_bf_num[j], D_mat + D_offset, nbf, 
                 shell_bf_num[i], shell_bf_num[j]
             );
@@ -197,32 +158,32 @@ static void TinySCF_Dmat_to_Dblkmat(
     }
 }
 
-void TinySCF_build_FockMat(TinySCF_t TinySCF)
+void TinySCF_build_JKmat(TinySCF_t TinySCF, const double *D_mat, double *J_mat, double *K_mat)
 {
-    int nshell          = TinySCF->nshell;
-    int num_valid_sp    = TinySCF->num_valid_sp;
-    int max_dim         = TinySCF->max_dim;
-    int nbf             = TinySCF->nbf;
-    int mat_size        = TinySCF->mat_size;
-    int *shell_bf_num   = TinySCF->shell_bf_num;
-    int *shell_bf_sind  = TinySCF->shell_bf_sind;
-    int *uniq_sp_lid    = TinySCF->uniq_sp_lid;
-    int *uniq_sp_rid    = TinySCF->uniq_sp_rid;
-    int *blk_mat_ptr  = TinySCF->blk_mat_ptr;
-    double scrtol2      = TinySCF->shell_scrtol2;
-    double *sp_scrval   = TinySCF->sp_scrval;
-    double *J_mat       = TinySCF->J_mat;
-    double *K_mat       = TinySCF->K_mat;
-    double *F_mat       = TinySCF->F_mat;
-    double *D_mat       = TinySCF->D_mat;
-    double *Hcore_mat   = TinySCF->Hcore_mat;
-    double *J_blk_mat = TinySCF->J_blk_mat;
-    double *K_blk_mat = TinySCF->K_blk_mat;
-    double *D_blk_mat = TinySCF->D_blk_mat;
-    Simint_t simint     = TinySCF->simint;
+    int nbf              = TinySCF->nbf;
+    int nshell           = TinySCF->nshell;
+    int num_valid_sp     = TinySCF->num_valid_sp;
+    int max_dim          = TinySCF->max_dim;
+    int mat_size         = TinySCF->mat_size;
+    int max_JKacc_buf    = TinySCF->max_JKacc_buf;
+    int *shell_bf_num    = TinySCF->shell_bf_num;
+    int *shell_bf_sind   = TinySCF->shell_bf_sind;
+    int *uniq_sp_lid     = TinySCF->uniq_sp_lid;
+    int *uniq_sp_rid     = TinySCF->uniq_sp_rid;
+    int *blk_mat_ptr     = TinySCF->blk_mat_ptr;
+    int *Mpair_flag      = TinySCF->Mpair_flag;
+    int *Npair_flag      = TinySCF->Npair_flag;
+    double scrtol2       = TinySCF->shell_scrtol2;
+    double *sp_scrval    = TinySCF->sp_scrval;
+    double *J_blk_mat    = TinySCF->J_blk_mat;
+    double *K_blk_mat    = TinySCF->K_blk_mat;
+    double *D_blk_mat    = TinySCF->D_blk_mat;
+    double *FM_strip_buf = TinySCF->FM_strip_buf;
+    double *FN_strip_buf = TinySCF->FN_strip_buf;
+    Simint_t simint      = TinySCF->simint;
     
-    memset(J_blk_mat, 0, DBL_SIZE * TinySCF->mat_size);
-    memset(K_blk_mat, 0, DBL_SIZE * TinySCF->mat_size);
+    memset(J_blk_mat, 0, DBL_SIZE * mat_size);
+    memset(K_blk_mat, 0, DBL_SIZE * mat_size);
     
     #pragma omp parallel
     {
@@ -241,10 +202,10 @@ void TinySCF_build_FockMat(TinySCF_t TinySCF)
         void *thread_multi_shellpair;
         CMS_Simint_createThreadMultishellpair(&thread_multi_shellpair);
         
-        double *thread_FM_strip_buf = TinySCF->FM_strip_buf + tid * nbf * max_dim;
-        double *thread_FN_strip_buf = TinySCF->FN_strip_buf + tid * nbf * max_dim;
-        int    *thread_Mpair_flag  = TinySCF->Mpair_flag  + tid * nshell;
-        int    *thread_Npair_flag  = TinySCF->Npair_flag  + tid * nshell;
+        double *thread_FM_strip_buf = FM_strip_buf + tid * nbf * max_dim;
+        double *thread_FN_strip_buf = FN_strip_buf + tid * nbf * max_dim;
+        int    *thread_Mpair_flag   = Mpair_flag   + tid * nshell;
+        int    *thread_Npair_flag   = Npair_flag   + tid * nshell;
         
         #pragma omp for schedule(dynamic)
         for (int MN = 0; MN < num_valid_sp; MN++)
@@ -253,7 +214,7 @@ void TinySCF_build_FockMat(TinySCF_t TinySCF)
             int N = uniq_sp_rid[MN];
             double scrval1 = sp_scrval[M * nshell + N];
             
-            double *J_MN_buf = TinySCF->Accum_Fock_buf + tid * TinySCF->max_buf_size;
+            double *J_MN_buf = TinySCF->JKacc_buf + tid * max_JKacc_buf;
             double *J_MN = J_blk_mat + blk_mat_ptr[M * nshell + N];
             int dimM = shell_bf_num[M], dimN = shell_bf_num[N];
             memset(J_MN_buf, 0, sizeof(double) * dimM * dimN);
@@ -306,7 +267,7 @@ void TinySCF_build_FockMat(TinySCF_t TinySCF)
                     if (thread_nints > 0)
                     {
                         double st = get_wtime_sec();
-                        Accum_Fock_with_KetshellpairList(
+                        acc_JKmat_with_ket_sp_list(
                             TinySCF, tid, M, N, 
                             target_shellpair_list->P_list,
                             target_shellpair_list->Q_list,
@@ -348,7 +309,7 @@ void TinySCF_build_FockMat(TinySCF_t TinySCF)
                     if (thread_nints > 0)
                     {
                         double st = get_wtime_sec();
-                        Accum_Fock_with_KetshellpairList(
+                        acc_JKmat_with_ket_sp_list(
                             TinySCF, tid, M, N, 
                             target_shellpair_list->P_list,
                             target_shellpair_list->Q_list,
@@ -366,46 +327,41 @@ void TinySCF_build_FockMat(TinySCF_t TinySCF)
                 }  // if (target_shellpair_list->npairs > 0)
             }  // for (int ket_id = 0; ket_id < MAX_AM_PAIRS; ket_id++)
             
+            // Accumulate thread-local J and K results to global J and K mat
             #ifdef BUILD_J_MAT_STD
             atomic_add_vector(J_MN, J_MN_buf, dimM * dimN);
             #endif
             #ifdef BUILD_K_MAT_HF
-            int thread_M_bank_offset = blk_mat_ptr[M * nshell];
-            int thread_N_bank_offset = blk_mat_ptr[N * nshell];
+            int FM_strip_offset = blk_mat_ptr[M * nshell];
+            int FN_strip_offset = blk_mat_ptr[N * nshell];
             for (int iPQ = 0; iPQ < nshell; iPQ++)
             {
                 int dim_iPQ = shell_bf_num[iPQ];
                 if (thread_Mpair_flag[iPQ]) 
                 {
-                    int MPQ_block_ptr = blk_mat_ptr[M * nshell + iPQ];
-                    double *global_K_block_ptr = K_blk_mat + MPQ_block_ptr;
-                    double *thread_F_M_band_block_ptr = thread_FM_strip_buf + MPQ_block_ptr - thread_M_bank_offset;
-                    atomic_add_vector(global_K_block_ptr, thread_F_M_band_block_ptr, dimM * dim_iPQ);
+                    int MPQ_blk_ptr = blk_mat_ptr[M * nshell + iPQ];
+                    double *K_blk_ptr = K_blk_mat + MPQ_blk_ptr;
+                    double *thread_FM_strip_blk_ptr = thread_FM_strip_buf + MPQ_blk_ptr - FM_strip_offset;
+                    atomic_add_vector(K_blk_ptr, thread_FM_strip_blk_ptr, dimM * dim_iPQ);
                 }
                 if (thread_Npair_flag[iPQ]) 
                 {
-                    int NPQ_block_ptr = blk_mat_ptr[N * nshell + iPQ];
-                    double *global_K_block_ptr = K_blk_mat + NPQ_block_ptr;
-                    double *thread_F_N_band_block_ptr = thread_FN_strip_buf + NPQ_block_ptr - thread_N_bank_offset;
-                    atomic_add_vector(global_K_block_ptr, thread_F_N_band_block_ptr, dimN * dim_iPQ);
+                    int NPQ_blk_ptr = blk_mat_ptr[N * nshell + iPQ];
+                    double *K_blk_ptr = K_blk_mat + NPQ_blk_ptr;
+                    double *thread_FN_strip_blk_ptr = thread_FN_strip_buf + NPQ_blk_ptr - FN_strip_offset;
+                    atomic_add_vector(K_blk_ptr, thread_FN_strip_blk_ptr, dimN * dim_iPQ);
                 }
             }
             #endif
         }  // for (int MN = 0; MN < num_valid_sp; MN++)
         
-        // Free batch ERI auxiliary data structures
-        CMS_Simint_freeThreadMultishellpair(&thread_multi_shellpair);
-        free_ThreadKetShellpairLists(thread_ksp_lists);
-        
         TinySCF_JKblkmat_to_JKmat(
             J_mat, K_mat, J_blk_mat, K_blk_mat, 
             blk_mat_ptr, shell_bf_num, shell_bf_sind, nshell, nbf
         );
-        
         TinySCF_finalize_JKmat(nbf, J_mat, K_mat);
         
-        #pragma omp for simd
-        for (int i = 0; i < mat_size; i++)
-            F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] - K_mat[i];
+        CMS_Simint_freeThreadMultishellpair(&thread_multi_shellpair);
+        free_ThreadKetShellpairLists(thread_ksp_lists);
     }
 }

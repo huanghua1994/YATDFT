@@ -7,7 +7,6 @@
 
 #include "utils.h"
 #include "TinySCF.h"
-#include "build_Fock.h"
 
 void TinySCF_DIIS(TinySCF_t TinySCF)
 {
@@ -31,11 +30,15 @@ void TinySCF_DIIS(TinySCF_t TinySCF)
     {
         // F = X^T * F * X
         // Use tmp_mat to store X^T * F
-        cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans, nbf, nbf, nbf, 
-                    1.0, X_mat, nbf, F_mat, nbf, 0.0, tmp_mat, nbf);
+        cblas_dgemm(
+            CblasRowMajor, CblasTrans, CblasNoTrans, nbf, nbf, nbf, 
+            1.0, X_mat, nbf, F_mat, nbf, 0.0, tmp_mat, nbf
+        );
         // Use F_mat to store X^T * F * X
-        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf, 
-                    1.0, tmp_mat, nbf, X_mat, nbf, 0.0, F_mat, nbf);
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf, 
+            1.0, tmp_mat, nbf, X_mat, nbf, 0.0, F_mat, nbf
+        );
         return;
     }
     
@@ -49,20 +52,28 @@ void TinySCF_DIIS(TinySCF_t TinySCF)
     }
     
     // FDS = F * D * S;
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf,
-                1.0, F_mat, nbf, D_mat, nbf, 0.0, tmp_mat, nbf);
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf,
-                1.0, tmp_mat, nbf, S_mat, nbf, 0.0, FDS_mat, nbf);
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf,
+        1.0, F_mat, nbf, D_mat, nbf, 0.0, tmp_mat, nbf
+    );
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf,
+        1.0, tmp_mat, nbf, S_mat, nbf, 0.0, FDS_mat, nbf
+    );
     
     // Residual = X^T * (FDS - FDS^T) * X
     // Use tmp_mat to store FDS - FDS^T
     mkl_domatadd('R', 'N', 'T', nbf, nbf, 1.0, FDS_mat, nbf, -1.0, FDS_mat, nbf, tmp_mat, nbf);
     // Use FDS_mat to store X^T * (FDS - FDS^T)
-    cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans, nbf, nbf, nbf,
-                1.0, X_mat, nbf, tmp_mat, nbf, 0.0, FDS_mat, nbf);
+    cblas_dgemm(
+        CblasRowMajor, CblasTrans, CblasNoTrans, nbf, nbf, nbf,
+        1.0, X_mat, nbf, tmp_mat, nbf, 0.0, FDS_mat, nbf
+    );
     // Use tmp_mat to store X^T * (FDS - FDS^T) * X
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf,
-                1.0, FDS_mat, nbf, X_mat, nbf, 0.0, tmp_mat, nbf);
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf,
+        1.0, FDS_mat, nbf, X_mat, nbf, 0.0, tmp_mat, nbf
+    );
     
     // In my MATLAB code, F_mat and its residual are treated as column vectors
     // For performance, we treat them as row vectors here
@@ -101,11 +112,15 @@ void TinySCF_DIIS(TinySCF_t TinySCF)
     
     // F := X^T * F * X, F0(:, DIIS_idx) = F
     // Use tmp_mat to store X^T * F
-    cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans, nbf, nbf, nbf, 
-                1.0, X_mat, nbf, F_mat, nbf, 0.0, tmp_mat, nbf);
+    cblas_dgemm(
+        CblasRowMajor, CblasTrans, CblasNoTrans, nbf, nbf, nbf, 
+        1.0, X_mat, nbf, F_mat, nbf, 0.0, tmp_mat, nbf
+    );
     // Use F_mat to store X^T * F * X
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf, 
-                1.0, tmp_mat, nbf, X_mat, nbf, 0.0, F_mat, nbf);
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf, 
+        1.0, tmp_mat, nbf, X_mat, nbf, 0.0, F_mat, nbf
+    );
     // Copy to F0
     memcpy(F0_mat + mat_size * DIIS_idx, F_mat, mat_mem_size);
     

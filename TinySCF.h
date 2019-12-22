@@ -12,8 +12,8 @@ struct TinySCF_struct
 {
     // OpenMP parallel setting and buffer
     int    nthreads;        // Number of threads
-    int    max_buf_size;    // Maximum buffer size for each thread's accumulating Fock matrix
-    double *Accum_Fock_buf; // Pointer to all thread's buffer for accumulating Fock matrix
+    int    max_JKacc_buf;   // Maximum buffer size for each thread's accumulating J and K matrix
+    double *JKacc_buf;      // All thread's buffer for accumulating J and K matrices
     
     // Chemical system info
     BasisSet_t basis;       // Basis set object for storing chemical system info, handled by libCMS
@@ -60,8 +60,6 @@ struct TinySCF_struct
     double *eigval;         // Eigenvalues for building density matrix
     int    *ev_idx;         // Index of eigenvalues, for sorting
     double *tmp_mat;        // Temporary matrix
-    double *D2_mat;         // Temporary matrix used in purification
-    double *D3_mat;         // Temporary matrix used in purification
     
     // Blocked J, K and D matrices and the offsets of each block
     double *J_blk_mat;      // Blocked J matrix
