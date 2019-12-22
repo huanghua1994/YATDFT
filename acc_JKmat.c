@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include "TinySCF.h"
+#include "TinySCF_typedef.h"
 #include "acc_JKmat.h"
 
 static inline void unique_integral_coef(int M, int N, int P, int Q, double *coef)

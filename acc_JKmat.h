@@ -1,7 +1,7 @@
 #ifndef _YATSCF_ACC_JKMAT_H_
 #define _YATSCF_ACC_JKMAT_H_
 
-#include "TinySCF.h"
+#include "TinySCF_typedef.h"
 
 #define ACC_JKMAT_IN_PARAM  TinySCF_t TinySCF, int tid, int M, int N, int P, int Q, \
                             double *ERI, int load_P, int write_P, \

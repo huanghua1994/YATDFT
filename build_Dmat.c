@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <float.h>
 #include <math.h>
 #include <omp.h>
@@ -8,8 +9,39 @@
 #include <mkl.h>
 
 #include "utils.h"
-#include "TinySCF.h"
+#include "TinySCF_typedef.h"
 #include "build_Dmat.h"
+
+void TinySCF_build_Dmat_SAD(TinySCF_t TinySCF, double *D_mat)
+{
+    assert(TinySCF != NULL);
+    
+    int natom    = TinySCF->natom;
+    int charge   = TinySCF->charge;
+    int electron = TinySCF->electron;
+    int nbf      = TinySCF->nbf;
+    int mat_size = TinySCF->mat_size;
+    BasisSet_t basis = TinySCF->basis;
+    
+    memset(D_mat, 0, DBL_SIZE * mat_size);
+    
+    double *guess;
+    int spos, epos, ldg;
+    for (int i = 0; i < natom; i++)
+    {
+        CMS_getInitialGuess(basis, i, &guess, &spos, &epos);
+        ldg = epos - spos + 1;
+        double *D_mat_ptr = D_mat + spos * nbf + spos;
+        copy_dbl_mat_blk(D_mat_ptr, nbf, guess, ldg, ldg, ldg);
+    }
+    
+    // Scaling the initial density matrix according to the charge and neutral
+    double R = 1.0;
+    if (charge != 0 && electron != 0) 
+        R = (double)(electron - charge) / (double)(electron);
+    R *= 0.5;
+    for (int i = 0; i < mat_size; i++) D_mat[i] *= R;
+}
 
 static void quickSort(double *eigval, int *ev_idx, int l, int r)
 {

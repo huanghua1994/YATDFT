@@ -1,5 +1,5 @@
-#ifndef _YATSCF_TFOCK_H_
-#define _YATSCF_TFOCK_H_
+#ifndef _YATSCF_TYPEDEF_H_
+#define _YATSCF_TYPEDEF_H_
 
 #include <omp.h>
 #include "libCMS.h"
@@ -31,7 +31,6 @@ struct TinySCF_struct
     int    *shell_bf_num;   // Number of basis function in each shell
     double prim_scrtol;     // Primitive screening 
     double shell_scrtol2;   // Square of the shell screening tolerance
-    double max_scrval;      // == max(fabs(sp_scrval(:)))
     double *sp_scrval;      // Square of screening values (upper bound) of each shell pair
     Simint_t   simint;      // Simint object for ERI, handled by libCMS
     BasisSet_t basis;       // Basis set object for storing chemical system info, handled by libCMS
@@ -65,7 +64,6 @@ struct TinySCF_struct
     double *B_mat;          // Linear system coefficient matrix in DIIS
     double *FDS_mat;        // F * D * S matrix in Commutator DIIS
     double *DIIS_rhs;       // Linear system right-hand-side vector in DIIS
-    
 
     // SCF iteration info
     int    max_iter;        // Maximum SCF iteration
@@ -74,7 +72,7 @@ struct TinySCF_struct
     double HF_energy;       // Hartree-Fock energy
     double ene_tol;         // SCF termination criteria for energy change
     
-    // Matrices and temporary arrays in SCF
+    // Matrices and arrays in SCF
     double *Hcore_mat;      // Core Hamiltonian matrix
     double *S_mat;          // Overlap matrix
     double *F_mat;          // Fock matrix
@@ -82,7 +80,7 @@ struct TinySCF_struct
     double *J_mat;          // Coulomb matrix
     double *K_mat;          // Exchange matrix
     double *X_mat;          // Basis transformation matrix
-    double *Cocc_mat;       // Temporary matrix for building density matrix
+    double *Cocc_mat;       // Factor of density matrix
     
     // Statistic 
     double mem_size, init_time, S_Hcore_time, shell_scr_time;
@@ -93,17 +91,14 @@ typedef struct TinySCF_struct* TinySCF_t;
 // Initialize TinySCF with a Cartesian basis set file (.gbs format), a molecule 
 // coordinate file and the number of SCF iterations (handled by libcint), and
 // allocate all memory for other calculation
-void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname, const int max_iter);
+void TinySCF_init(TinySCF_t TinySCF, char *bas_fname, char *xyz_fname);
 
 // Compute the screening values of each shell quartet and the unique shell pairs
 // that survive screening using Schwarz inequality
-void TinySCF_compute_sq_Schwarz_scrvals(TinySCF_t TinySCF);
-
-// Generate initial guess for density matrix using SAD data (handled by libcint)
-void TinySCF_get_initial_guess(TinySCF_t TinySCF);
+void TinySCF_screen_shell_quartets(TinySCF_t TinySCF);
 
 // Perform SCF iterations
-void TinySCF_do_SCF(TinySCF_t TinySCF);
+void TinySCF_do_SCF(TinySCF_t TinySCF, const int max_iter);
 
 // Destroy TinySCF, free all allocated memory
 void TinySCF_destroy(TinySCF_t TinySCF);

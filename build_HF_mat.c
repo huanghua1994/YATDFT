@@ -8,7 +8,7 @@
 #include <mkl.h>
 
 #include "utils.h"
-#include "TinySCF.h"
+#include "TinySCF_typedef.h"
 #include "build_HF_mat.h"
 #include "ket_sp_list.h"
 #include "acc_JKmat.h"

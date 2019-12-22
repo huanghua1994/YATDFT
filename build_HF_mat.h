@@ -1,7 +1,7 @@
 #ifndef _YATSCF_BUILD_HF_MAT_H_
 #define _YATSCF_BUILD_HF_MAT_H_
 
-#include "TinySCF.h"
+#include "TinySCF_typedef.h"
 
 // Compute core Hamiltonian, overlap, and basis transform matrices
 void TinySCF_build_Hcore_S_X_mat(TinySCF_t TinySCF, double *Hcore_mat, double *S_mat, double *X_mat);
