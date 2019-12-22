@@ -5,8 +5,8 @@
 
 #define ACCUM_FOCK_IN_PARAM TinySCF_t TinySCF, int tid, int M, int N, int P, int Q, \
                             double *ERI, int load_P, int write_P, \
-                            double *FM_strip_blocks, int FM_strip_offset, \
-                            double *FN_strip_blocks, int FN_strip_offset
+                            double *FM_strip_buf, int FM_strip_offset, \
+                            double *FN_strip_buf, int FN_strip_offset
 
 void Accum_Fock(ACCUM_FOCK_IN_PARAM);
 

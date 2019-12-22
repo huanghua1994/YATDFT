@@ -48,29 +48,29 @@ static inline void update_global_blocks(
 void Accum_Fock(ACCUM_FOCK_IN_PARAM)
 {
     // Set matrix size info
-    int nbf  = TinySCF->nbasfuncs;
+    int nbf  = TinySCF->nbf;
     int dimM = TinySCF->shell_bf_num[M];
     int dimN = TinySCF->shell_bf_num[N];
     int dimP = TinySCF->shell_bf_num[P];
     int dimQ = TinySCF->shell_bf_num[Q];
-    int nshell = TinySCF->nshells;
+    int nshell = TinySCF->nshell;
     
-    int *mat_block_ptr  = TinySCF->mat_block_ptr;
-    double *D_mat_block = TinySCF->D_mat_block;
+    int *blk_mat_ptr  = TinySCF->blk_mat_ptr;
+    double *D_blk_mat = TinySCF->D_blk_mat;
     
     // Set global matrix pointers
-    double *J_PQ = TinySCF->J_mat_block + TinySCF->mat_block_ptr[P * nshell + Q];
-    double *K_MP = FM_strip_blocks + (mat_block_ptr[M * nshell + P] - FM_strip_offset); 
-    double *K_NP = FN_strip_blocks + (mat_block_ptr[N * nshell + P] - FN_strip_offset);
-    double *K_MQ = FM_strip_blocks + (mat_block_ptr[M * nshell + Q] - FM_strip_offset);
-    double *K_NQ = FN_strip_blocks + (mat_block_ptr[N * nshell + Q] - FN_strip_offset);
+    double *J_PQ = TinySCF->J_blk_mat + TinySCF->blk_mat_ptr[P * nshell + Q];
+    double *K_MP = FM_strip_buf + (blk_mat_ptr[M * nshell + P] - FM_strip_offset); 
+    double *K_NP = FN_strip_buf + (blk_mat_ptr[N * nshell + P] - FN_strip_offset);
+    double *K_MQ = FM_strip_buf + (blk_mat_ptr[M * nshell + Q] - FM_strip_offset);
+    double *K_NQ = FN_strip_buf + (blk_mat_ptr[N * nshell + Q] - FN_strip_offset);
     
-    double *D_MN = D_mat_block + mat_block_ptr[M * nshell + N];
-    double *D_PQ = D_mat_block + mat_block_ptr[P * nshell + Q];
-    double *D_MP = D_mat_block + mat_block_ptr[M * nshell + P];
-    double *D_NP = D_mat_block + mat_block_ptr[N * nshell + P];
-    double *D_MQ = D_mat_block + mat_block_ptr[M * nshell + Q];
-    double *D_NQ = D_mat_block + mat_block_ptr[N * nshell + Q];
+    double *D_MN = D_blk_mat + blk_mat_ptr[M * nshell + N];
+    double *D_PQ = D_blk_mat + blk_mat_ptr[P * nshell + Q];
+    double *D_MP = D_blk_mat + blk_mat_ptr[M * nshell + P];
+    double *D_NP = D_blk_mat + blk_mat_ptr[N * nshell + P];
+    double *D_MQ = D_blk_mat + blk_mat_ptr[M * nshell + Q];
+    double *D_NQ = D_blk_mat + blk_mat_ptr[N * nshell + Q];
     
     // Set buffer pointer
     double *thread_buf = TinySCF->Accum_Fock_buf + tid * TinySCF->max_buf_size;

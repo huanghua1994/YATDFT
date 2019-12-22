@@ -45,7 +45,7 @@ void TinySCF_build_DenMat(TinySCF_t TinySCF)
     double *Cocc_mat = TinySCF->Cocc_mat;
     double *eigval   = TinySCF->eigval;
     int    *ev_idx   = TinySCF->ev_idx;
-    int    nbf       = TinySCF->nbasfuncs;
+    int    nbf       = TinySCF->nbf;
     int    n_occ     = TinySCF->n_occ;
     
     // Notice: here F_mat is already = X^T * F * X

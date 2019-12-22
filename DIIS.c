@@ -25,7 +25,7 @@ void TinySCF_DIIS(TinySCF_t TinySCF)
     int mat_size     = TinySCF->mat_size;
     int mat_mem_size = DBL_SIZE * mat_size;
     int ldB = MAX_DIIS + 1;
-    int nbf = TinySCF->nbasfuncs;
+    int nbf = TinySCF->nbf;
     
     if (TinySCF->iter <= 1)
     {
