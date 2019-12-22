@@ -80,63 +80,107 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
 }
 
 // Get the final J and K matrices: J = (J + J^T) / 2, K = (K + K^T) / 2
-static void TinyDFT_finalize_JKmat(const int nbf, double *J_mat, double *K_mat)
+static void TinyDFT_finalize_JKmat(const int nbf, double *J_mat, double *K_mat, const int build_J, const int build_K)
 {
-    #pragma omp for schedule(dynamic)
-    for (int irow = 0; irow < nbf; irow++)
+    if (build_J == 1 && build_K == 1)
     {
-        int idx = irow * nbf + irow;
-        for (int icol = irow + 1; icol < nbf; icol++)
+        #pragma omp for schedule(dynamic)
+        for (int irow = 0; irow < nbf; irow++)
         {
-            int idx1 = irow * nbf + icol;
-            int idx2 = icol * nbf + irow;
-            double Jval = (J_mat[idx1] + J_mat[idx2]) * 0.5;
-            double Kval = (K_mat[idx1] + K_mat[idx2]) * 0.5;
-            J_mat[idx1] = Jval;
-            J_mat[idx2] = Jval;
-            K_mat[idx1] = Kval;
-            K_mat[idx2] = Kval;
+            int idx = irow * nbf + irow;
+            for (int icol = irow + 1; icol < nbf; icol++)
+            {
+                int idx1 = irow * nbf + icol;
+                int idx2 = icol * nbf + irow;
+                double Jval = (J_mat[idx1] + J_mat[idx2]) * 0.5;
+                double Kval = (K_mat[idx1] + K_mat[idx2]) * 0.5;
+                J_mat[idx1] = Jval;
+                J_mat[idx2] = Jval;
+                K_mat[idx1] = Kval;
+                K_mat[idx2] = Kval;
+            }
+        }
+    }
+    
+    if (build_J == 1 && build_K == 0)
+    {
+        #pragma omp for schedule(dynamic)
+        for (int irow = 0; irow < nbf; irow++)
+        {
+            int idx = irow * nbf + irow;
+            for (int icol = irow + 1; icol < nbf; icol++)
+            {
+                int idx1 = irow * nbf + icol;
+                int idx2 = icol * nbf + irow;
+                double Jval = (J_mat[idx1] + J_mat[idx2]) * 0.5;
+                J_mat[idx1] = Jval;
+                J_mat[idx2] = Jval;
+            }
+        }
+    }
+    
+    if (build_J == 0 && build_K == 1)
+    {
+        #pragma omp for schedule(dynamic)
+        for (int irow = 0; irow < nbf; irow++)
+        {
+            int idx = irow * nbf + irow;
+            for (int icol = irow + 1; icol < nbf; icol++)
+            {
+                int idx1 = irow * nbf + icol;
+                int idx2 = icol * nbf + irow;
+                double Kval = (K_mat[idx1] + K_mat[idx2]) * 0.5;
+                K_mat[idx1] = Kval;
+                K_mat[idx2] = Kval;
+            }
         }
     }
 }
 
 static void TinyDFT_JKblkmat_to_JKmat(
-    double *J_mat, double *K_mat, double *J_blk_mat, double *K_blk_mat,
-    int *blk_mat_ptr, int *shell_bf_num, int *shell_bf_sind, int nshell, int nbf
+    const int nshell, const int nbf, const int *shell_bf_num, const int *shell_bf_sind, 
+    const int *blk_mat_ptr, const double *J_blk_mat, const double *K_blk_mat, 
+    double *J_mat, double *K_mat, const int build_J, const int build_K
 )
 {
-    #pragma omp for
-    for (int i = 0; i < nshell; i++)
+    if (build_J)
     {
-        for (int j = 0; j < nshell; j++)
+        #pragma omp for
+        for (int i = 0; i < nshell; i++)
         {
-            int Jblk_offset = blk_mat_ptr[i * nshell + j];
-            int J_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
-            copy_dbl_mat_blk(
-                J_mat + J_offset, nbf, J_blk_mat + Jblk_offset, shell_bf_num[j],
-                shell_bf_num[i], shell_bf_num[j]
-            );
+            for (int j = 0; j < nshell; j++)
+            {
+                int Jblk_offset = blk_mat_ptr[i * nshell + j];
+                int J_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
+                copy_dbl_mat_blk(
+                    J_mat + J_offset, nbf, J_blk_mat + Jblk_offset, shell_bf_num[j],
+                    shell_bf_num[i], shell_bf_num[j]
+                );
+            }
         }
     }
     
-    #pragma omp for
-    for (int i = 0; i < nshell; i++)
+    if (build_K)
     {
-        for (int j = 0; j < nshell; j++)
+        #pragma omp for
+        for (int i = 0; i < nshell; i++)
         {
-            int Kblk_offset = blk_mat_ptr[i * nshell + j];
-            int K_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
-            copy_dbl_mat_blk(
-                K_mat + K_offset, nbf, K_blk_mat + Kblk_offset, shell_bf_num[j],
-                shell_bf_num[i], shell_bf_num[j]
-            );
+            for (int j = 0; j < nshell; j++)
+            {
+                int Kblk_offset = blk_mat_ptr[i * nshell + j];
+                int K_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
+                copy_dbl_mat_blk(
+                    K_mat + K_offset, nbf, K_blk_mat + Kblk_offset, shell_bf_num[j],
+                    shell_bf_num[i], shell_bf_num[j]
+                );
+            }
         }
     }
 }
 
 static void TinyDFT_Dmat_to_Dblkmat(
-    const double *D_mat, double *D_blk_mat, int *blk_mat_ptr, 
-    int *shell_bf_num, int *shell_bf_sind, int nshell, int nbf
+    const int nshell, const int nbf, const int *shell_bf_num, const int *shell_bf_sind, 
+    const int *blk_mat_ptr, const double *D_mat, double *D_blk_mat
 )
 {
     #pragma omp for
@@ -178,16 +222,20 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
     double *FN_strip_buf  = TinyDFT->FN_strip_buf;
     Simint_t simint       = TinyDFT->simint;
     
-    memset(J_blk_mat, 0, DBL_SIZE * mat_size);
-    memset(K_blk_mat, 0, DBL_SIZE * mat_size);
+    int build_J = (J_mat == NULL) ? 0 : 1;
+    int build_K = (K_mat == NULL) ? 0 : 1;
+    if (build_J == 0 && build_K == 0) return;
+    
+    if (build_J) memset(J_blk_mat, 0, DBL_SIZE * mat_size);
+    if (build_K) memset(K_blk_mat, 0, DBL_SIZE * mat_size);
     
     #pragma omp parallel
     {
         int tid = omp_get_thread_num();
         
         TinyDFT_Dmat_to_Dblkmat(
-            D_mat, D_blk_mat, blk_mat_ptr,
-            shell_bf_num, shell_bf_sind, nshell, nbf
+            nshell, nbf, shell_bf_num, shell_bf_sind, 
+            blk_mat_ptr, D_mat, D_blk_mat
         );
         
         // Create ERI batching auxiliary data structures
@@ -213,12 +261,15 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
             double *J_MN_buf = TinyDFT->JKacc_buf + tid * max_JKacc_buf;
             double *J_MN = J_blk_mat + blk_mat_ptr[M * nshell + N];
             int dimM = shell_bf_num[M], dimN = shell_bf_num[N];
-            memset(J_MN_buf, 0, sizeof(double) * dimM * dimN);
             
-            memset(thread_FM_strip_buf, 0, sizeof(double) * nbf * max_dim);
-            memset(thread_FN_strip_buf, 0, sizeof(double) * nbf * max_dim);
-            memset(thread_Mpair_flag,  0, sizeof(int)    * nshell);
-            memset(thread_Npair_flag,  0, sizeof(int)    * nshell);
+            if (build_J) memset(J_MN_buf, 0, sizeof(double) * dimM * dimN);
+            if (build_K)
+            {                
+                memset(thread_FM_strip_buf, 0, sizeof(double) * nbf * max_dim);
+                memset(thread_FN_strip_buf, 0, sizeof(double) * nbf * max_dim);
+                memset(thread_Mpair_flag,   0, sizeof(int)    * nshell);
+                memset(thread_Npair_flag,   0, sizeof(int)    * nshell);
+            }
             
             for (int PQ = 0; PQ < num_valid_sp; PQ++)
             {
@@ -268,9 +319,10 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
                             target_shellpair_list->P_list,
                             target_shellpair_list->Q_list,
                             target_shellpair_list->npairs,
-                            thread_batch_eris, thread_nints,
+                            thread_batch_eris,   thread_nints,
                             thread_FM_strip_buf, thread_FN_strip_buf,
-                            thread_Mpair_flag, thread_Npair_flag
+                            thread_Mpair_flag,   thread_Npair_flag,
+                            build_J, build_K
                         );
                         double et = get_wtime_sec();
                         if (tid == 0) CMS_Simint_addupdateFtimer(simint, et - st);
@@ -310,9 +362,10 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
                             target_shellpair_list->P_list,
                             target_shellpair_list->Q_list,
                             target_shellpair_list->npairs,
-                            thread_batch_eris, thread_nints,
+                            thread_batch_eris,   thread_nints,
                             thread_FM_strip_buf, thread_FN_strip_buf,
-                            thread_Mpair_flag, thread_Npair_flag
+                            thread_Mpair_flag,   thread_Npair_flag,
+                            build_J, build_K
                         );
                         double et = get_wtime_sec();
                         if (tid == 0) CMS_Simint_addupdateFtimer(simint, et - st);
@@ -324,34 +377,37 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
             }  // End of ket_id loop
             
             // Accumulate thread-local J and K results to global J and K mat
-            atomic_add_vector(J_MN, J_MN_buf, dimM * dimN);
-            int FM_strip_offset = blk_mat_ptr[M * nshell];
-            int FN_strip_offset = blk_mat_ptr[N * nshell];
-            for (int iPQ = 0; iPQ < nshell; iPQ++)
-            {
-                int dim_iPQ = shell_bf_num[iPQ];
-                if (thread_Mpair_flag[iPQ]) 
+            if (build_J) atomic_add_vector(J_MN, J_MN_buf, dimM * dimN);
+            if (build_K) 
+            {                
+                int FM_strip_offset = blk_mat_ptr[M * nshell];
+                int FN_strip_offset = blk_mat_ptr[N * nshell];
+                for (int iPQ = 0; iPQ < nshell; iPQ++)
                 {
-                    int MPQ_blk_ptr = blk_mat_ptr[M * nshell + iPQ];
-                    double *K_blk_ptr = K_blk_mat + MPQ_blk_ptr;
-                    double *thread_FM_strip_blk_ptr = thread_FM_strip_buf + MPQ_blk_ptr - FM_strip_offset;
-                    atomic_add_vector(K_blk_ptr, thread_FM_strip_blk_ptr, dimM * dim_iPQ);
-                }
-                if (thread_Npair_flag[iPQ]) 
-                {
-                    int NPQ_blk_ptr = blk_mat_ptr[N * nshell + iPQ];
-                    double *K_blk_ptr = K_blk_mat + NPQ_blk_ptr;
-                    double *thread_FN_strip_blk_ptr = thread_FN_strip_buf + NPQ_blk_ptr - FN_strip_offset;
-                    atomic_add_vector(K_blk_ptr, thread_FN_strip_blk_ptr, dimN * dim_iPQ);
-                }
-            }
+                    int dim_iPQ = shell_bf_num[iPQ];
+                    if (thread_Mpair_flag[iPQ]) 
+                    {
+                        int MPQ_blk_ptr = blk_mat_ptr[M * nshell + iPQ];
+                        double *K_blk_ptr = K_blk_mat + MPQ_blk_ptr;
+                        double *thread_FM_strip_blk_ptr = thread_FM_strip_buf + MPQ_blk_ptr - FM_strip_offset;
+                        atomic_add_vector(K_blk_ptr, thread_FM_strip_blk_ptr, dimM * dim_iPQ);
+                    }
+                    if (thread_Npair_flag[iPQ]) 
+                    {
+                        int NPQ_blk_ptr = blk_mat_ptr[N * nshell + iPQ];
+                        double *K_blk_ptr = K_blk_mat + NPQ_blk_ptr;
+                        double *thread_FN_strip_blk_ptr = thread_FN_strip_buf + NPQ_blk_ptr - FN_strip_offset;
+                        atomic_add_vector(K_blk_ptr, thread_FN_strip_blk_ptr, dimN * dim_iPQ);
+                    }
+                }  // End of iPQ loop
+            }  // End of "if (build_K)"
         }  // End of MN loop
         
         TinyDFT_JKblkmat_to_JKmat(
-            J_mat, K_mat, J_blk_mat, K_blk_mat, 
-            blk_mat_ptr, shell_bf_num, shell_bf_sind, nshell, nbf
+            nshell, nbf, shell_bf_num, shell_bf_sind, blk_mat_ptr,
+            J_blk_mat, K_blk_mat, J_mat, K_mat, build_J, build_K
         );
-        TinyDFT_finalize_JKmat(nbf, J_mat, K_mat);
+        TinyDFT_finalize_JKmat(nbf, J_mat, K_mat, build_J, build_K);
         
         CMS_Simint_freeThreadMultishellpair(&thread_multi_shellpair);
         free_ThreadKetShellpairLists(thread_ksp_lists);

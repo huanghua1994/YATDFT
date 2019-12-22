@@ -95,7 +95,7 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     size_t MN_strip_msize     = DBL_SIZE * TinyDFT->max_dim * TinyDFT->nbf;
     size_t max_buf_entry_size = TinyDFT->max_dim * TinyDFT->max_dim;
     size_t total_buf_size     = max_buf_entry_size * 6 * TinyDFT->nthread;
-    TinyDFT->max_JKacc_buf    = max_buf_entry_size * 6;
+    TinyDFT->max_JKacc_buf = max_buf_entry_size * 6;
     TinyDFT->blk_mat_ptr   = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->num_total_sp);
     TinyDFT->Mpair_flag    = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->nshell * TinyDFT->nthread);
     TinyDFT->Npair_flag    = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->nshell * TinyDFT->nthread);
