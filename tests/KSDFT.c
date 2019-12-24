@@ -115,7 +115,7 @@ int main(int argc, char **argv)
     st = get_wtime_sec();
     TinyDFT_setup_XC_integral(TinyDFT);
     et = get_wtime_sec();
-    printf("TinyDFT set up XC integral over,                   elapsed time = %.3lf (s)\n", et - st);
+    printf("TinyDFT set up XC integral over, nintp = %8d, elapsed time = %.3lf (s)\n", TinyDFT->nintp, et - st);
     
     // Do SCF calculation
     TinyDFT_SCF(TinyDFT, atoi(argv[3]));

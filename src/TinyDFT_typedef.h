@@ -56,13 +56,12 @@ struct TinyDFT_struct
 
     // Matrices and arrays used in XC functional calculation
     int    nintp;           // Total number of XC numerical integral points
+    int    nintp_blk;       // Maximum number of XC numerical integral points per block
     double *int_grid;       // Size 4-by-nintp, integral points and weights
-    double *phi;            // Size nbf-by-ninpt, phi[i, :] are i-th basis 
-                            // function values at all integral points
-    double *rho;            // Size ninpt, electron density at all integral points
-    double *XC_workbuf;     // Size (nbf+2)*ninpt, XC calculation work buffer
-    //the energy per unit particle
-    //double *vxc;            // Size ninpt, first derivative of the energy per unit volume
+    double *phi;            // Size nbf-by-nintp_blk, phi[i, :] are i-th basis 
+                            // function values at some integral points
+    double *rho;            // Size nintp_blk, electron density at some integral points
+    double *XC_workbuf;     // Size (nbf+2)*nintp_blk, XC calculation work buffer
 
     // Temporary matrices used in multiple modules
     double *tmp_mat;        // Size nbf-by-nbf, used in: build_Dmat, CDIIS

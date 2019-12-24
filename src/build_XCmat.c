@@ -98,6 +98,29 @@ static void TinyDFT_flatten_shell_info_to_bf(TinyDFT_t TinyDFT)
     }
 }
 
+// Set up exchange-correlation numerical integral environments
+void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT)
+{
+    TinyDFT_flatten_shell_info_to_bf(TinyDFT);
+    
+    gen_int_grid(
+        TinyDFT->natom, TinyDFT->atom_xyz, TinyDFT->atom_idx,
+        &TinyDFT->nintp, &TinyDFT->int_grid
+    );
+    
+    int nbf = TinyDFT->nbf;
+    int nintp = TinyDFT->nintp;
+    int nintp_blk = 1024;   // Calculate no more than 1024 points each time
+    TinyDFT->nintp_blk = nintp_blk;
+    TinyDFT->phi = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * nbf);
+    TinyDFT->rho = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
+    TinyDFT->XC_workbuf = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * (nbf + 2));
+    assert(TinyDFT->phi != NULL);
+    assert(TinyDFT->rho != NULL);
+    assert(TinyDFT->XC_workbuf != NULL);
+    TinyDFT->mem_size += (double) (DBL_SIZE * nintp_blk * (2 * nbf + 3));
+}
+
 // Evaluate basis functions at specified integral grid points
 // Input parameters:
 //   nintp     : Total number of XC numerical integral points
@@ -156,34 +179,6 @@ static void TinySCF_eval_BF_at_int_grid(
             phi_i[j  - sintp] = phi_ij;
         }
     }
-}
-
-// Set up exchange-correlation numerical integral environments
-void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT)
-{
-    TinyDFT_flatten_shell_info_to_bf(TinyDFT);
-    
-    gen_int_grid(
-        TinyDFT->natom, TinyDFT->atom_xyz, TinyDFT->atom_idx,
-        &TinyDFT->nintp, &TinyDFT->int_grid
-    );
-    
-    int nbf   = TinyDFT->nbf;
-    int nintp = TinyDFT->nintp;
-    TinyDFT->phi        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp * nbf);
-    TinyDFT->rho        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp);
-    TinyDFT->XC_workbuf = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp * (nbf + 2));
-    assert(TinyDFT->phi        != NULL);
-    assert(TinyDFT->rho        != NULL);
-    assert(TinyDFT->XC_workbuf != NULL);
-    TinyDFT->mem_size += (double) (DBL_SIZE * nintp * (2 * nbf + 3));
-    
-    TinySCF_eval_BF_at_int_grid(
-        nintp, TinyDFT->int_grid, 0, nintp, 
-        nbf, TinyDFT->bf_coef, TinyDFT->bf_alpha,
-        TinyDFT->bf_exp, TinyDFT->bf_center, TinyDFT->bf_nprim, 
-        TinyDFT->max_nprim, nintp, TinyDFT->phi
-    );
 }
 
 // Evaluate electron density at given grid points
@@ -300,26 +295,40 @@ static double TinyDFT_build_XC_Xalpha_partial(
     return E_xc;
 }
 
+// Construct DFT exchange-correlation matrix
 double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_mat)
 {
     double E_xc = 0.0;
     
-    int nbf   = TinyDFT->nbf;
+    int nbf = TinyDFT->nbf;
     int nintp = TinyDFT->nintp;
+    int nintp_blk = TinyDFT->nintp_blk;
     double *phi = TinyDFT->phi;
     double *rho = TinyDFT->rho;
     double *ipw = TinyDFT->int_grid + 3 * nintp;
     double *workbuf = TinyDFT->XC_workbuf;
-    
-    // TODO: slice nintp into multiple segments, evaluate BF values 
-    // segment by segment and accumulate the XC matrix
-    
-    TinyDFT_eval_electron_density(nbf, D_mat, nintp, nintp, phi, workbuf, rho);
-    
-    E_xc = TinyDFT_build_XC_Xalpha_partial(
-        nbf, nintp, nintp, phi, rho, 
-        ipw, 0.0, workbuf, XC_mat
-    );
+
+    for (int sintp = 0; sintp < nintp; sintp += nintp_blk)
+    {
+        int eintp = sintp + nintp_blk;
+        if (eintp > nintp) eintp = nintp;
+        int curr_nintp_blk = eintp - sintp;
+        double beta = (sintp == 0) ? 0.0 : 1.0;
+        
+        TinySCF_eval_BF_at_int_grid(
+            nintp, TinyDFT->int_grid, sintp, eintp, 
+            nbf, TinyDFT->bf_coef, TinyDFT->bf_alpha,
+            TinyDFT->bf_exp, TinyDFT->bf_center, TinyDFT->bf_nprim, 
+            TinyDFT->max_nprim, nintp_blk, phi
+        );
+        
+        TinyDFT_eval_electron_density(nbf, D_mat, nintp_blk, curr_nintp_blk, phi, workbuf, rho);
+        
+        E_xc += TinyDFT_build_XC_Xalpha_partial(
+            nbf, nintp_blk, curr_nintp_blk, phi, rho, 
+            ipw + sintp, beta, workbuf, XC_mat
+        );
+    }
     
     return E_xc;
 }
