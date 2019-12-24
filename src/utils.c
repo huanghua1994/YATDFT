@@ -23,6 +23,15 @@ double get_wtime_sec()
     return sec;
 }
 
+int block_spos(const int nblk, const int iblk, const int len)
+{
+    int bs0 = len / nblk;
+    int rem = len % nblk;
+    int bs1 = bs0 + 1;
+    if (iblk < rem) return iblk * bs1;
+    else return (iblk * bs0 + rem);
+}
+
 // For debug
 void print_dbl_mat(double *mat, const int ldm, const int nrows, const int ncols, const char *mat_name)
 {

@@ -41,7 +41,7 @@ void TinyDFT_HFSCF(TinyDFT_t TinyDFT, const int max_iter)
         // Build the Fock matrix
         st1 = get_wtime_sec();
         TinyDFT_build_JKmat(TinyDFT, D_mat, J_mat, K_mat);
-        #pragma omp for simd
+        #pragma omp parallel for simd
         for (int i = 0; i < mat_size; i++)
             F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] - K_mat[i];
         et1 = get_wtime_sec();

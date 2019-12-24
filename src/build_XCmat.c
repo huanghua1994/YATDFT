@@ -3,6 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include <math.h>
+#include <omp.h>
 
 #include <mkl.h>
 
@@ -127,7 +128,7 @@ static void TinySCF_eval_BF_at_int_grid(
     const double *ipz = int_grid + 2 * nintp;
     const double *ipw = int_grid + 3 * nintp;
     
-    // TODO: OpenMP parallelize this loop
+    #pragma omp parallel for
     for (int i = 0; i < nbf; i++)
     {
         const int    bfnp = bf_nprim[i];
@@ -139,6 +140,7 @@ static void TinySCF_eval_BF_at_int_grid(
         const double bfze = bf_exp[3 * i + 2];
         const double *bfc = bf_coef  + i * max_nprim;
         const double *bfa = bf_alpha + i * max_nprim;
+        double *phi_i = phi + i * ld_phi;
         
         #pragma omp simd
         for (int j = sintp; j < eintp; j++)
@@ -151,7 +153,7 @@ static void TinySCF_eval_BF_at_int_grid(
             double phi_ij = 0.0;
             for (int p = 0; p < bfnp; p++)
                 phi_ij += bfc[p] * poly * exp(-bfa[p] * d2);
-            phi[i * ld_phi + (j - sintp)] = phi_ij;
+            phi_i[j  - sintp] = phi_ij;
         }
     }
 }
@@ -175,6 +177,13 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT)
     assert(TinyDFT->rho        != NULL);
     assert(TinyDFT->XC_workbuf != NULL);
     TinyDFT->mem_size += (double) (DBL_SIZE * nintp * (2 * nbf + 3));
+    
+    TinySCF_eval_BF_at_int_grid(
+        nintp, TinyDFT->int_grid, 0, nintp, 
+        nbf, TinyDFT->bf_coef, TinyDFT->bf_alpha,
+        TinyDFT->bf_exp, TinyDFT->bf_center, TinyDFT->bf_nprim, 
+        TinyDFT->max_nprim, nintp, TinyDFT->phi
+    );
 }
 
 // Evaluate electron density at given grid points
@@ -207,16 +216,23 @@ static void TinyDFT_eval_electron_density(
     );
     // (2) rho = 2 * sum_column(phi .* D_phi), "2 *" is that we use
     // D = Cocc*Cocc^T instead of D = 2*Cocc*Cocc^T outside
-    memset(rho, 0, DBL_SIZE * npt_phi);
-    for (int i = 0; i < nbf; i++)
+    int nthread = omp_get_num_threads();
+    #pragma omp parallel num_threads(nthread)
     {
-        const double *phi_i   = phi   + i * ld_phi;
-        const double *D_phi_i = D_phi + i * npt_phi;
-        #pragma omp simd
-        for (int j = 0; j < npt_phi; j++)
-            rho[j] += phi_i[j] * D_phi_i[j];
+        int tid  = omp_get_thread_num();
+        int spos = block_spos(nthread, tid,     npt_phi);
+        int epos = block_spos(nthread, tid + 1, npt_phi);
+        for (int j = spos; j < epos; j++) rho[j] = 0.0;
+        for (int i = 0; i < nbf; i++)
+        {
+            const double *phi_i   = phi   + i * ld_phi;
+            const double *D_phi_i = D_phi + i * npt_phi;
+            #pragma omp simd
+            for (int j = spos; j < epos; j++)
+                rho[j] += phi_i[j] * D_phi_i[j];
+        }
+        for (int j = spos; j < epos; j++) rho[j] *= 2.0;
     }
-    for (int j = 0; j < npt_phi; j++) rho[j] *= 2.0;
 }
 
 // Build partial DFT XC matrix using Xalpha functional and rho
@@ -252,13 +268,14 @@ static double TinyDFT_build_XC_Xalpha_partial(
     double *phi_vxc_w = vxc + npt_phi;
     
     // (1) Evaluate exc, vxc, and XC energy
-    double alpha = 0.7;
-    double vxc_coef = -alpha * (3.0/2.0) * pow(3.0/M_PI, 1.0/3.0);
-    double exc_coef = -alpha * (9.0/8.0) * pow(3.0/M_PI, 1.0/3.0);
+    const double alpha = 0.7;
+    const double pow_3opi_1o3 = 0.984745021842696541;  // pow(3/M_PI, 1/3);
+    double vxc_coef = -alpha * (3.0/2.0) * pow_3opi_1o3;
+    double exc_coef = -alpha * (9.0/8.0) * pow_3opi_1o3;
     #pragma omp simd
     for (int i = 0; i < npt_phi; i++) 
     {
-        double rho_i_13 = pow(rho[i], 1.0/3.0);
+        double rho_i_13 = pow(rho[i], 0.333333333333333333);
         exc[i] = exc_coef * rho_i_13;
         vxc[i] = vxc_coef * rho_i_13;
         E_xc += exc[i] * rho[i] * ipw[i];
@@ -266,10 +283,12 @@ static double TinyDFT_build_XC_Xalpha_partial(
     
     // (2) XC_{u,v} = \int phi_u(r) * vxc(r) * phi_v(r) dr
     for (int i = 0; i < npt_phi; i++) vxc[i] *= ipw[i];
+    #pragma omp parallel for
     for (int i = 0; i < nbf; i++)
     {
         const double *phi_i = phi + i * ld_phi;
         double *phi_vxc_w_i = phi_vxc_w + i * npt_phi;
+        #pragma omp simd
         for (int j = 0; j < npt_phi; j++)
             phi_vxc_w_i[j] = phi_i[j] * vxc[j];
     }
@@ -294,14 +313,7 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
     
     // TODO: slice nintp into multiple segments, evaluate BF values 
     // segment by segment and accumulate the XC matrix
-
-    TinySCF_eval_BF_at_int_grid(
-        nintp, TinyDFT->int_grid, 0, nintp, 
-        nbf, TinyDFT->bf_coef, TinyDFT->bf_alpha,
-        TinyDFT->bf_exp, TinyDFT->bf_center, TinyDFT->bf_nprim, 
-        TinyDFT->max_nprim, nintp, TinyDFT->phi
-    );
-
+    
     TinyDFT_eval_electron_density(nbf, D_mat, nintp, nintp, phi, workbuf, rho);
     
     E_xc = TinyDFT_build_XC_Xalpha_partial(

@@ -21,6 +21,9 @@ void copy_dbl_mat_blk(
 // Get current wall-clock time, similar to omp_get_wtime()
 double get_wtime_sec();
 
+// A safe version of (iblk * len) / nblk
+int block_spos(const int nblk, const int iblk, const int len);
+
 // For debug, print a dense matrix
 void print_dbl_mat(double *mat, const int ldm, const int nrows, const int ncols, const char *mat_name);
 

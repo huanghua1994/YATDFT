@@ -41,12 +41,13 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter)
         // Build the Fock matrix
         st1 = get_wtime_sec();
         TinyDFT_build_JKmat(TinyDFT, D_mat, J_mat, NULL);
+        st2 = get_wtime_sec();
         *E_DFT_XC = TinyDFT_build_XC_mat(TinyDFT, D_mat, XC_mat);
-        #pragma omp for simd
+        #pragma omp parallel for simd
         for (int i = 0; i < mat_size; i++)
             F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] + XC_mat[i];
         et1 = get_wtime_sec();
-        printf("* Build Fock matrix     : %.3lf (s)\n", et1 - st1);
+        printf("* Build Fock matrix     : %.3lf (s), J / XC = %.3lf, %.3lf (s)\n", et1 - st1, st2 - st1, et1 - st2);
         
         // Calculate new system energy
         st1 = get_wtime_sec();
@@ -97,16 +98,24 @@ int main(int argc, char **argv)
         return 255;
     }
     
+    double st, et;
+    
     // Initialize TinyDFT
     TinyDFT_t TinyDFT;
     TinyDFT_init(&TinyDFT, argv[1], argv[2]);
     
     // Compute constant matrices and get initial guess for D
+    st = get_wtime_sec();
     TinyDFT_build_Hcore_S_X_mat(TinyDFT, TinyDFT->Hcore_mat, TinyDFT->S_mat, TinyDFT->X_mat);
     TinyDFT_build_Dmat_SAD(TinyDFT, TinyDFT->D_mat);
+    et = get_wtime_sec();
+    printf("TinyDFT compute Hcore, S, X matrices over,         elapsed time = %.3lf (s)\n", et - st);
     
     // Set up XC numerical integral environments
+    st = get_wtime_sec();
     TinyDFT_setup_XC_integral(TinyDFT);
+    et = get_wtime_sec();
+    printf("TinyDFT set up XC integral over,                   elapsed time = %.3lf (s)\n", et - st);
     
     // Do SCF calculation
     TinyDFT_SCF(TinyDFT, atoi(argv[3]));
