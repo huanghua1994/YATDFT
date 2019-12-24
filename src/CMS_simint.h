@@ -1,6 +1,8 @@
 #ifndef __CMS_SIMINT_H__
 #define __CMS_SIMINT_H__
 
+#include "simint/simint.h"
+
 struct Simint
 {
     int nthreads;

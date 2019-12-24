@@ -9,6 +9,8 @@
 
 #include "build_HF_mat.h"
 
+#include "build_XCmat.h"
+
 #include "CDIIS.h"
 
 #include "utils.h"

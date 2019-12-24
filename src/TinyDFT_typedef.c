@@ -67,13 +67,18 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     printf("    # occupied orbits = %d\n", TinyDFT->n_occ);
     printf("    # charge          = %d\n", TinyDFT->charge);
     printf("    # electrons       = %d\n", TinyDFT->electron);
+    int nthread = TinyDFT->nthread;
+    int natom   = TinyDFT->natom;
+    int nshell  = TinyDFT->nshell;
+    int nbf     = TinyDFT->nbf;
+    int n_occ   = TinyDFT->n_occ;
     
     // Allocate memory for ERI info arrays
-    CMS_createSimint(TinyDFT->basis, &(TinyDFT->simint), TinyDFT->nthread, TinyDFT->prim_scrtol);
+    CMS_createSimint(TinyDFT->basis, &(TinyDFT->simint), nthread, TinyDFT->prim_scrtol);
     TinyDFT->valid_sp_lid  = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->num_valid_sp);
     TinyDFT->valid_sp_rid  = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->num_valid_sp);
-    TinyDFT->shell_bf_sind = (int*)    ALIGN64B_MALLOC(INT_SIZE * (TinyDFT->nshell + 1));
-    TinyDFT->shell_bf_num  = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->nshell);
+    TinyDFT->shell_bf_sind = (int*)    ALIGN64B_MALLOC(INT_SIZE * (nshell + 1));
+    TinyDFT->shell_bf_num  = (int*)    ALIGN64B_MALLOC(INT_SIZE * nshell);
     TinyDFT->sp_scrval     = (double*) ALIGN64B_MALLOC(DBL_SIZE * TinyDFT->num_total_sp);
     assert(TinyDFT->valid_sp_lid  != NULL);
     assert(TinyDFT->valid_sp_rid  != NULL);
@@ -81,30 +86,40 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     assert(TinyDFT->shell_bf_num  != NULL);
     assert(TinyDFT->sp_scrval     != NULL);
     TinyDFT->mem_size += (double) (INT_SIZE * 2 * TinyDFT->num_valid_sp);
-    TinyDFT->mem_size += (double) (INT_SIZE * (2 * TinyDFT->nshell + 1));
+    TinyDFT->mem_size += (double) (INT_SIZE * (2 * nshell + 1));
     TinyDFT->mem_size += (double) (DBL_SIZE * TinyDFT->num_total_sp);
-    for (int i = 0; i < TinyDFT->nshell; i++)
+    for (int i = 0; i < nshell; i++)
     {
         TinyDFT->shell_bf_sind[i] = CMS_getFuncStartInd(TinyDFT->basis, i);
         TinyDFT->shell_bf_num[i]  = CMS_getShellDim    (TinyDFT->basis, i);
     }
-    TinyDFT->shell_bf_sind[TinyDFT->nshell] = TinyDFT->nbf;
+    TinyDFT->shell_bf_sind[nshell] = nbf;
+    
+    // Flattened Gaussian basis function and atom info used only 
+    // in XC calculation will be allocated if needed
+    TinyDFT->atom_idx  = NULL;
+    TinyDFT->bf_nprim  = NULL;
+    TinyDFT->atom_xyz  = NULL;
+    TinyDFT->bf_coef   = NULL;
+    TinyDFT->bf_alpha  = NULL;
+    TinyDFT->bf_exp    = NULL;
+    TinyDFT->bf_center = NULL;
     
     // Allocate memory for matrices and arrays used only in build_HF_mat
     size_t mat_msize          = DBL_SIZE * TinyDFT->mat_size;
-    size_t MN_strip_msize     = DBL_SIZE * TinyDFT->max_dim * TinyDFT->nbf;
+    size_t MN_strip_msize     = DBL_SIZE * TinyDFT->max_dim * nbf;
     size_t max_buf_entry_size = TinyDFT->max_dim * TinyDFT->max_dim;
-    size_t total_buf_size     = max_buf_entry_size * 6 * TinyDFT->nthread;
+    size_t total_buf_size     = max_buf_entry_size * 6 * nthread;
     TinyDFT->max_JKacc_buf = max_buf_entry_size * 6;
     TinyDFT->blk_mat_ptr   = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->num_total_sp);
-    TinyDFT->Mpair_flag    = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->nshell * TinyDFT->nthread);
-    TinyDFT->Npair_flag    = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->nshell * TinyDFT->nthread);
+    TinyDFT->Mpair_flag    = (int*)    ALIGN64B_MALLOC(INT_SIZE * nshell * nthread);
+    TinyDFT->Npair_flag    = (int*)    ALIGN64B_MALLOC(INT_SIZE * nshell * nthread);
     TinyDFT->J_blk_mat     = (double*) ALIGN64B_MALLOC(mat_msize);
     TinyDFT->K_blk_mat     = (double*) ALIGN64B_MALLOC(mat_msize);
     TinyDFT->D_blk_mat     = (double*) ALIGN64B_MALLOC(mat_msize);
     TinyDFT->JKacc_buf     = (double*) ALIGN64B_MALLOC(DBL_SIZE * total_buf_size);
-    TinyDFT->FM_strip_buf  = (double*) ALIGN64B_MALLOC(MN_strip_msize * TinyDFT->nthread);
-    TinyDFT->FN_strip_buf  = (double*) ALIGN64B_MALLOC(MN_strip_msize * TinyDFT->nthread);
+    TinyDFT->FM_strip_buf  = (double*) ALIGN64B_MALLOC(MN_strip_msize * nthread);
+    TinyDFT->FN_strip_buf  = (double*) ALIGN64B_MALLOC(MN_strip_msize * nthread);
     assert(TinyDFT->blk_mat_ptr  != NULL);
     assert(TinyDFT->Mpair_flag   != NULL);
     assert(TinyDFT->Npair_flag   != NULL);
@@ -115,14 +130,14 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     assert(TinyDFT->FM_strip_buf != NULL);
     assert(TinyDFT->FN_strip_buf != NULL);
     TinyDFT->mem_size += (double) (INT_SIZE * TinyDFT->num_total_sp);
-    TinyDFT->mem_size += (double) (2 * INT_SIZE * TinyDFT->nshell * TinyDFT->nthread);
+    TinyDFT->mem_size += (double) (2 * INT_SIZE * nshell * nthread);
     TinyDFT->mem_size += (double) (3 * mat_msize);
-    TinyDFT->mem_size += (double) (2 * MN_strip_msize * TinyDFT->nthread);
+    TinyDFT->mem_size += (double) (2 * MN_strip_msize * nthread);
     TinyDFT->mem_size += (double) (DBL_SIZE * total_buf_size);
     int pos = 0, idx = 0;
-    for (int i = 0; i < TinyDFT->nshell; i++)
+    for (int i = 0; i < nshell; i++)
     {
-        for (int j = 0; j < TinyDFT->nshell; j++)
+        for (int j = 0; j < nshell; j++)
         {
             TinyDFT->blk_mat_ptr[idx] = pos;
             pos += TinyDFT->shell_bf_num[i] * TinyDFT->shell_bf_num[j];
@@ -130,17 +145,24 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
         }
     }
     
+    // Matrices and arrays used in XC functional calculation will 
+    // be allocated later if needed
+    TinyDFT->int_grid   = NULL;
+    TinyDFT->phi        = NULL;
+    TinyDFT->rho        = NULL;
+    TinyDFT->XC_workbuf = NULL;
+    
     // Allocate memory for matrices used in multiple modules
     TinyDFT->tmp_mat = (double*) ALIGN64B_MALLOC(mat_msize);
     assert(TinyDFT->tmp_mat != NULL);
     TinyDFT->mem_size += (double) (mat_msize);
     
     // Allocate memory for matrices and arrays used only in build_Dmat
-    TinyDFT->ev_idx = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->nbf);
-    TinyDFT->eigval = (double*) ALIGN64B_MALLOC(DBL_SIZE * TinyDFT->nbf);
+    TinyDFT->ev_idx = (int*)    ALIGN64B_MALLOC(INT_SIZE * nbf);
+    TinyDFT->eigval = (double*) ALIGN64B_MALLOC(DBL_SIZE * nbf);
     assert(TinyDFT->ev_idx != NULL);
     assert(TinyDFT->eigval != NULL);
-    TinyDFT->mem_size += (double) ((DBL_SIZE + INT_SIZE) * TinyDFT->nbf);
+    TinyDFT->mem_size += (double) ((DBL_SIZE + INT_SIZE) * nbf);
     
     // Allocate memory for matrices and arrays used only in CDIIS
     int MAX_DIIS_1 = MAX_DIIS + 1;
@@ -174,28 +196,29 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->E_tol      = 1e-10;
     TinyDFT->Hcore_mat  = (double*) ALIGN64B_MALLOC(mat_msize);
     TinyDFT->S_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->F_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->D_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
+    TinyDFT->X_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
     TinyDFT->J_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
     TinyDFT->K_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->X_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->Cocc_mat   = (double*) ALIGN64B_MALLOC(DBL_SIZE * TinyDFT->n_occ * TinyDFT->nbf);
+    TinyDFT->XC_mat     = (double*) ALIGN64B_MALLOC(mat_msize);
+    TinyDFT->F_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
+    TinyDFT->D_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
+    TinyDFT->Cocc_mat   = (double*) ALIGN64B_MALLOC(DBL_SIZE * n_occ * nbf);
     assert(TinyDFT->Hcore_mat != NULL);
     assert(TinyDFT->S_mat     != NULL);
-    assert(TinyDFT->F_mat     != NULL);
-    assert(TinyDFT->D_mat     != NULL);
+    assert(TinyDFT->X_mat     != NULL);
     assert(TinyDFT->J_mat     != NULL);
     assert(TinyDFT->K_mat     != NULL);
-    assert(TinyDFT->X_mat     != NULL);
+    assert(TinyDFT->XC_mat    != NULL);
+    assert(TinyDFT->F_mat     != NULL);
+    assert(TinyDFT->D_mat     != NULL);
     assert(TinyDFT->Cocc_mat  != NULL);
-    TinyDFT->mem_size += (double) (7 * mat_msize);
-    TinyDFT->mem_size += (double) (DBL_SIZE * TinyDFT->n_occ * TinyDFT->nbf);
+    TinyDFT->mem_size += (double) (8 * mat_msize);
+    TinyDFT->mem_size += (double) (DBL_SIZE * n_occ * nbf);
 
     double et = get_wtime_sec();
     TinyDFT->init_time = et - st;
     
     // Print memory usage and time consumption
-    printf("TinyDFT memory usage    = %.2lf MB\n", TinyDFT->mem_size / 1048576.0);
     printf("TinyDFT memory allocation and initialization over, elapsed time = %.3lf (s)\n", TinyDFT->init_time);
     
     TinyDFT_screen_shell_quartets(TinyDFT);
@@ -208,12 +231,24 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     TinyDFT_t TinyDFT = *_TinyDFT;
     assert(TinyDFT != NULL);
     
+    printf("TinyDFT memory usage = %.2lf MB\n", TinyDFT->mem_size / 1048576.0);
+    
     // Free ERI info arrays
     ALIGN64B_FREE(TinyDFT->valid_sp_lid);
     ALIGN64B_FREE(TinyDFT->valid_sp_rid);
     ALIGN64B_FREE(TinyDFT->shell_bf_sind);
     ALIGN64B_FREE(TinyDFT->shell_bf_num);
     ALIGN64B_FREE(TinyDFT->sp_scrval);
+    
+    // Free flattened Gaussian basis function and atom info used only 
+    // in XC calculation
+    ALIGN64B_FREE(TinyDFT->atom_idx);
+    ALIGN64B_FREE(TinyDFT->bf_nprim);
+    ALIGN64B_FREE(TinyDFT->atom_xyz);
+    ALIGN64B_FREE(TinyDFT->bf_coef);
+    ALIGN64B_FREE(TinyDFT->bf_alpha);
+    ALIGN64B_FREE(TinyDFT->bf_exp);
+    ALIGN64B_FREE(TinyDFT->bf_center);
     
     // Free matrices and temporary arrays used only in build_HF_mat
     ALIGN64B_FREE(TinyDFT->blk_mat_ptr);
@@ -225,6 +260,12 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     ALIGN64B_FREE(TinyDFT->JKacc_buf);
     ALIGN64B_FREE(TinyDFT->FM_strip_buf);
     ALIGN64B_FREE(TinyDFT->FN_strip_buf);
+    
+    // Free matrices and arrays used in XC functional calculation
+    free(TinyDFT->int_grid);
+    ALIGN64B_FREE(TinyDFT->phi);
+    ALIGN64B_FREE(TinyDFT->rho);
+    ALIGN64B_FREE(TinyDFT->XC_workbuf);
     
     // Free matrices used in multiple modules
     ALIGN64B_FREE(TinyDFT->tmp_mat);
@@ -381,3 +422,4 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
     // Print runtime
     printf("TinyDFT precompute shell screening info over,      elapsed time = %.3lf (s)\n", TinyDFT->shell_scr_time);
 }
+

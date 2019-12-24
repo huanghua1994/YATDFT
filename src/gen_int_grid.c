@@ -306,34 +306,3 @@ void gen_int_grid(
     free(sum_pvec);
 }
 
-int main()
-{
-    int natom = 9;
-    int atom_idx[9] = {4, 4, 6, 7, 8, 14, 15, 17, 32};
-    double atom_xyz[9 * 3] = {
-        0, 1, 2, 0, 1, 2, 0, 1, 2,
-        2, 1, 0, 0, 1, 2, 1, 2, 1,
-        1, 1, 0, 2, 2, 1, 0, 1, 2
-    };
-    int npoint;
-    double *int_grid;
-    gen_int_grid(natom, atom_xyz, atom_idx, &npoint, &int_grid);
-    
-    double *ipx = int_grid + npoint * 0;
-    double *ipy = int_grid + npoint * 1;
-    double *ipz = int_grid + npoint * 2;
-    double *ipw = int_grid + npoint * 3;
-    double nint = 0.0;
-    #pragma omp simd reduction(+:nint)
-    for (int i = 0; i < npoint; i++)
-    {
-        double r2 = ipx[i] * ipx[i] + ipy[i] * ipy[i] + ipz[i] * ipz[i];
-        double f  = sqrt(r2) * exp(-0.1 * r2);
-        nint += f * ipw[i];
-    }
-    printf("%d points, nint = % .10e\n", npoint, nint);
-    
-    free(int_grid);
-    return 0;
-}
-

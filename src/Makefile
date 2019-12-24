@@ -13,38 +13,48 @@ LIBS    = $(BLAS_LIB) $(SIMINT_LIBFILE)
 CFLAGS  = -Wall -g -O3 -qopenmp -std=gnu99 -xHost $(DEFS) $(BLAS_LIB)
 LDFLAGS = -lpthread -qopenmp $(BLAS_LIB)
 
-OBJS =  CMS_basis.o CMS_simint.o utils.o build_Dmat.o ket_sp_list.o \
-		acc_JKmat.o build_HF_mat.o CDIIS.o TinyDFT_typedef.o
+OBJS =  CMS_basis.o CMS_simint.o utils.o ket_sp_list.o TinyDFT_typedef.o \
+		acc_JKmat.o build_HF_mat.o gen_Lebedev_grid.o gen_int_grid.o \
+        build_XCmat.o CDIIS.o build_Dmat.o 
 
 $(LIB): $(OBJS) 
 	$(AR) $@ $^
 
-CMS_basis.o: Makefile CMS_basis.c CMS_basis.h
+CMS_basis.o: Makefile CMS_basis.h CMS_basis.c 
 	$(CC) $(CFLAGS) $(INCS) -c CMS_basis.c -o $@ 
 
-CMS_simint.o: Makefile CMS_simint.c CMS_simint.h
+CMS_simint.o: Makefile CMS_simint.h CMS_simint.c 
 	$(CC) $(CFLAGS) $(INCS) -c CMS_simint.c -o $@ 
 
-utils.o: Makefile utils.c utils.h
+utils.o: Makefile utils.h utils.c 
 	$(CC) $(CFLAGS) $(INCS) -c utils.c -o $@ 
 
-build_Dmat.o: Makefile build_Dmat.c build_Dmat.h TinyDFT_typedef.h
-	$(CC) $(CFLAGS) $(INCS) -c build_Dmat.c -o $@ 
-
-ket_sp_list.o: Makefile ket_sp_list.c ket_sp_list.h
+ket_sp_list.o: Makefile ket_sp_list.h ket_sp_list.c 
 	$(CC) $(CFLAGS) $(INCS) -c ket_sp_list.c -o $@ 
 
-acc_JKmat.o: Makefile acc_JKmat.h acc_JKmat.c TinyDFT_typedef.h
+TinyDFT_typedef.o: Makefile utils.h TinyDFT_typedef.h TinyDFT_typedef.c 
+	$(CC) $(CFLAGS) $(INCS) -c TinyDFT_typedef.c -o $@ 
+
+acc_JKmat.o: Makefile TinyDFT_typedef.h acc_JKmat.h acc_JKmat.c 
 	$(CC) $(CFLAGS) $(INCS) -c acc_JKmat.c -o $@ 
 
-build_HF_mat.o: Makefile build_HF_mat.c build_HF_mat.h TinyDFT_typedef.h ket_sp_list.h
+build_HF_mat.o: Makefile TinyDFT_typedef.h ket_sp_list.h build_HF_mat.h build_HF_mat.c 
 	$(CC) $(CFLAGS) $(INCS) -c build_HF_mat.c -o $@ 
 
-CDIIS.o: Makefile CDIIS.c CDIIS.h TinyDFT_typedef.h
+gen_Lebedev_grid.o: Makefile gen_Lebedev_grid.h gen_Lebedev_grid.c 
+	$(CC) $(CFLAGS) $(INCS) -c gen_Lebedev_grid.c -o $@ 
+
+gen_int_grid.o: Makefile gen_Lebedev_grid.h gen_int_grid.h gen_int_grid.c 
+	$(CC) $(CFLAGS) $(INCS) -c gen_int_grid.c -o $@ 
+
+build_XCmat.o: Makefile gen_int_grid.h build_XCmat.h build_XCmat.c 
+	$(CC) $(CFLAGS) $(INCS) -c build_XCmat.c -o $@ 
+
+CDIIS.o: Makefile TinyDFT_typedef.h CDIIS.h CDIIS.c 
 	$(CC) $(CFLAGS) $(INCS) -c CDIIS.c -o $@ 
 
-TinyDFT_typedef.o: Makefile TinyDFT_typedef.c TinyDFT_typedef.h utils.h
-	$(CC) $(CFLAGS) $(INCS) -c TinyDFT_typedef.c -o $@ 
+build_Dmat.o: Makefile TinyDFT_typedef.h build_Dmat.h build_Dmat.c 
+	$(CC) $(CFLAGS) $(INCS) -c build_Dmat.c -o $@ 
 
 clean:
 	rm -f *.o $(LIB)

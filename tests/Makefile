@@ -9,7 +9,7 @@ INCS     = -I../src/ -I$(SIMINT_INCDIR)
 CFLAGS   = $(INCS) -Wall -g -std=gnu99 -O3 -qopenmp -xHost -mkl $(BLAS_LIB)
 LDFLAGS  = -g -O3 -xHost -qopenmp -mkl $(BLAS_LIB)
 
-SRCS = HFSCF.c
+SRCS = HFSCF.c KSDFT.c
 OBJS = $(SRCS:.c=.o)
 EXES = $(OBJS:.o=.x)
 
