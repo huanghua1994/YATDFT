@@ -150,7 +150,7 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
 // Output parameter:
 //   phi : Size nbf-by-ld_phi, phi[i, :] are i-th basis function values
 //         at integral points [sintp, eintp)
-static void TinySCF_eval_BF_at_int_grid(
+static void TinySCF_eval_basis_func(
     const int nintp, const double *int_grid, const int sintp, const int eintp,
     const int nbf, const double *bf_coef, const double *bf_alpha, 
     const double *bf_exp, const double *bf_center, const int *bf_nprim,
@@ -160,7 +160,6 @@ static void TinySCF_eval_BF_at_int_grid(
     const double *ipx = int_grid + 0 * nintp;
     const double *ipy = int_grid + 1 * nintp;
     const double *ipz = int_grid + 2 * nintp;
-    const double *ipw = int_grid + 3 * nintp;
     
     #pragma omp parallel for
     for (int i = 0; i < nbf; i++)
@@ -198,16 +197,16 @@ static void TinySCF_eval_BF_at_int_grid(
 //   D_mat   : Size nbf-by-nbf, density matrix
 //   ld_phi  : Leading dimension of phi, == maximum number of grid point 
 //             results per basis function that phi can store
-//   npt_phi : The first npt_phi phi values in phi will be used
+//   npts    : The first npts phi values in phi will be used
 //   phi     : Size nbf-by-ld_phi, phi[i, :] are i-th basis function values
 //             at some integral points
-//   workbuf : Size nbf-by-npt_phi
+//   workbuf : Size nbf-by-npts
 // Output parameter:
 //   rho : ELectron density corresponding to the integral points in the 
-//         first npt_phi grid points in phi
+//         first npts grid points in phi
 static void TinyDFT_eval_electron_density(
     const int nbf, const double *D_mat, 
-    const int ld_phi, const int npt_phi, const double *phi,
+    const int ld_phi, const int npts, const double *phi,
     double *workbuf, double *rho
 )
 {
@@ -217,8 +216,8 @@ static void TinyDFT_eval_electron_density(
     // electron density at g-th grid point. 
     // (1) D_phi = D * phi;
     cblas_dgemm(
-        CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, npt_phi, nbf, 
-        1.0, D_mat, nbf, phi, ld_phi, 0.0, D_phi, npt_phi
+        CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, npts, nbf, 
+        1.0, D_mat, nbf, phi, ld_phi, 0.0, D_phi, npts
     );
     // (2) rho = 2 * sum_column(phi .* D_phi), "2 *" is that we use
     // D = Cocc*Cocc^T instead of D = 2*Cocc*Cocc^T outside
@@ -226,13 +225,13 @@ static void TinyDFT_eval_electron_density(
     #pragma omp parallel num_threads(nthread)
     {
         int tid  = omp_get_thread_num();
-        int spos = block_spos(nthread, tid,     npt_phi);
-        int epos = block_spos(nthread, tid + 1, npt_phi);
+        int spos = block_spos(nthread, tid,     npts);
+        int epos = block_spos(nthread, tid + 1, npts);
         for (int j = spos; j < epos; j++) rho[j] = 0.0;
         for (int i = 0; i < nbf; i++)
         {
             const double *phi_i   = phi   + i * ld_phi;
-            const double *D_phi_i = D_phi + i * npt_phi;
+            const double *D_phi_i = D_phi + i * npts;
             #pragma omp simd
             for (int j = spos; j < epos; j++)
                 rho[j] += phi_i[j] * D_phi_i[j];
@@ -245,30 +244,30 @@ static void TinyDFT_eval_electron_density(
 // Input parameters:
 //   xfid    : Exchange functional ID
 //   cfid    : Correlation functional ID
-//   np      : Number of points
-//   rho     : Size np, electron density at some integral points
-//   ipw     : Size np, numerical integral weights of points in rho
-//   workbuf : Size np * 4
+//   npts    : Number of points
+//   rho     : Size npts, electron density at some integral points
+//   ipw     : Size npts, numerical integral weights of points in rho
+//   workbuf : Size npts * 4
 // Output paramaters:
-//   exc      : Size np, "energy per unit particle", == G / rho
-//   vxc      : Size np, correlation potential, == \frac{\part G}{\part rho}
+//   exc      : Size npts, "energy per unit particle", == G / rho
+//   vxc      : Size npts, correlation potential, == \frac{\part G}{\part rho}
 //   <return> : XC energy, E_xc = \int G(rho(r)) dr
 static double TinyDFT_eval_LDA_XC_func(
-    const int xfid, const int cfid, const int np, const double *rho,
+    const int xfid, const int cfid, const int npts, const double *rho,
     const double *ipw, double *workbuf, double *exc, double *vxc
 )
 {
-    double *ex = workbuf + np * 0;
-    double *ec = workbuf + np * 1;
-    double *vx = workbuf + np * 2;
-    double *vc = workbuf + np * 3;
+    double *ex = workbuf + npts * 0;
+    double *ec = workbuf + npts * 1;
+    double *vx = workbuf + npts * 2;
+    double *vc = workbuf + npts * 3;
 
-    eval_LDA_exc_vxc(xfid, np, rho, ex, vx);
-    eval_LDA_exc_vxc(cfid, np, rho, ec, vc);
+    eval_LDA_exc_vxc(xfid, npts, rho, ex, vx);
+    eval_LDA_exc_vxc(cfid, npts, rho, ec, vc);
     
     double E_xc = 0.0;
     #pragma omp simd
-    for (int i = 0; i < np; i++)
+    for (int i = 0; i < npts; i++)
     {
         exc[i] = ex[i] + ec[i];
         vxc[i] = vx[i] + vc[i];
@@ -284,81 +283,91 @@ static double TinyDFT_eval_LDA_XC_func(
 //   nbf     : Number of basis functions
 //   ld_phi  : Leading dimension of phi, == maximum number of grid point 
 //             results per basis function that phi can store
-//   npt_phi : The first npt_phi phi values in phi will be used
+//   npts    : The first npts phi values in phi will be used
 //   phi     : Size nbf-by-ld_phi, phi[i, :] are i-th basis function values
 //             at some integral points
-//   vxc     : Size npt_phi, correlation potential, will be overwritten by vxc .* ipw
-//   ipw     : Size npt_phi, numerical integral weights of points in rho
+//   vxc     : Size npts, correlation potential, will be overwritten by vxc .* ipw
+//   ipw     : Size npts, numerical integral weights of points in rho
 //   beta    : 0.0 if this is the first call, otherwise 1.0
-//   workbuf : Size npt_phi * (nbf + 2)
+//   workbuf : Size npts * (nbf + 2)
 // Output parameter:
 //   XC_mat : Accumulated DFT XC matrix
 static void TinyDFT_build_XC_LDA_partial(
-    const int nbf, const int ld_phi, const int npt_phi, 
+    const int nbf, const int ld_phi, const int npts, 
     const double *phi, double *vxc, const double *ipw,
     const double beta, double *workbuf, double *XC_mat
 )
 {
     // XC_{u,v} = \int phi_u(r) * vxc(r) * phi_v(r) dr
-    double *phi_vxc_w = workbuf + npt_phi * 4;
+    double *phi_vxc_w = workbuf + npts * 4;
     #pragma omp simd
-    for (int i = 0; i < npt_phi; i++) vxc[i] *= ipw[i];
+    for (int i = 0; i < npts; i++) vxc[i] *= ipw[i];
     #pragma omp parallel for
     for (int i = 0; i < nbf; i++)
     {
         const double *phi_i = phi + i * ld_phi;
-        double *phi_vxc_w_i = phi_vxc_w + i * npt_phi;
+        double *phi_vxc_w_i = phi_vxc_w + i * npts;
         #pragma omp simd
-        for (int j = 0; j < npt_phi; j++)
+        for (int j = 0; j < npts; j++)
             phi_vxc_w_i[j] = phi_i[j] * vxc[j];
     }
     cblas_dgemm(
-        CblasRowMajor, CblasNoTrans, CblasTrans, nbf, nbf, npt_phi,
-        1.0, phi, ld_phi, phi_vxc_w, npt_phi, beta, XC_mat, nbf
+        CblasRowMajor, CblasNoTrans, CblasTrans, nbf, nbf, npts,
+        1.0, phi, ld_phi, phi_vxc_w, npts, beta, XC_mat, nbf
     );
 }
 
 // Construct DFT exchange-correlation matrix
 double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_mat)
-{
-    double E_xc = 0.0;
-    
-    int xfid  = TinyDFT->xfid;
-    int cfid  = TinyDFT->cfid;
-    int nbf   = TinyDFT->nbf;
-    int nintp = TinyDFT->nintp;
-    int nintp_blk = TinyDFT->nintp_blk;
-    double *phi = TinyDFT->phi;
-    double *rho = TinyDFT->rho;
-    double *exc = TinyDFT->exc;
-    double *vxc = TinyDFT->vxc;
-    double *ipw = TinyDFT->int_grid + 3 * nintp;
-    double *workbuf = TinyDFT->XC_workbuf;
+{ 
+    int    nbf        = TinyDFT->nbf;
+    int    xfid       = TinyDFT->xfid;
+    int    cfid       = TinyDFT->cfid;
+    int    nintp      = TinyDFT->nintp;
+    int    nintp_blk  = TinyDFT->nintp_blk;
+    int    max_nprim  = TinyDFT->max_nprim;
+    int    *bf_nprim  = TinyDFT->bf_nprim;
+    double *bf_coef   = TinyDFT->bf_coef;
+    double *bf_alpha  = TinyDFT->bf_alpha;
+    double *bf_exp    = TinyDFT->bf_exp;
+    double *bf_center = TinyDFT->bf_center;
+    double *phi       = TinyDFT->phi;
+    double *rho       = TinyDFT->rho;
+    double *exc       = TinyDFT->exc;
+    double *vxc       = TinyDFT->vxc;
+    double *int_grid  = TinyDFT->int_grid;
+    double *ipw       = TinyDFT->int_grid + 3 * nintp;
+    double *workbuf   = TinyDFT->XC_workbuf;
 
+    double E_xc = 0.0;
     for (int sintp = 0; sintp < nintp; sintp += nintp_blk)
     {
         int eintp = sintp + nintp_blk;
         if (eintp > nintp) eintp = nintp;
-        int curr_nintp_blk = eintp - sintp;
+        int npts = eintp - sintp;
         double beta = (sintp == 0) ? 0.0 : 1.0;
+        double *curr_ipw = ipw + sintp;
         
-        TinySCF_eval_BF_at_int_grid(
-            nintp, TinyDFT->int_grid, sintp, eintp, 
-            nbf, TinyDFT->bf_coef, TinyDFT->bf_alpha,
-            TinyDFT->bf_exp, TinyDFT->bf_center, TinyDFT->bf_nprim, 
-            TinyDFT->max_nprim, nintp_blk, phi
+        TinySCF_eval_basis_func(
+            nintp, int_grid, sintp, eintp, 
+            nbf, bf_coef, bf_alpha,
+            bf_exp, bf_center, bf_nprim, 
+            max_nprim, nintp_blk, phi
         );
         
-        TinyDFT_eval_electron_density(nbf, D_mat, nintp_blk, curr_nintp_blk, phi, workbuf, rho);
+        TinyDFT_eval_electron_density(
+            nbf, D_mat, nintp_blk, npts, 
+            phi, workbuf, rho
+        );
         
         E_xc += TinyDFT_eval_LDA_XC_func(
-            xfid, cfid, curr_nintp_blk, rho, ipw + sintp, 
+            xfid, cfid, npts, rho, curr_ipw, 
             workbuf, exc, vxc
         );
         
         TinyDFT_build_XC_LDA_partial(
-            nbf, nintp_blk, curr_nintp_blk, phi, vxc, 
-            ipw + sintp, beta, workbuf, XC_mat
+            nbf, nintp_blk, npts, phi, vxc, 
+            curr_ipw, beta, workbuf, XC_mat
         );
     }
     
