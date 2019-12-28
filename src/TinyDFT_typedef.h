@@ -1,7 +1,7 @@
 #ifndef _YATDFT_TYPEDEF_H_
 #define _YATDFT_TYPEDEF_H_
 
-#include <omp.h>
+#include <xc.h>
 #include "libCMS.h"
 
 // TinyDFT structure
@@ -55,8 +55,12 @@ struct TinyDFT_struct
     double *FN_strip_buf;   // Size unknown, thread-private buffer for F_NP and F_NQ blocks with the same N
 
     // Matrices and arrays used in XC functional calculation
-    int    xfid;            // Exchange functional ID, default is LDA_X
-    int    cfid;            // Correlation functional ID, default is LDA_C_XALPHA
+    int    xf_id;           // Exchange functional ID, default is LDA_X
+    int    cf_id;           // Correlation functional ID, default is LDA_C_XALPHA
+    int    xf_impl;         // If we has built-in implementation of the exchange functional
+    int    cf_impl;         // If we has built-in implementation of the correlation functional
+    int    xf_family;       // Exchange functional family (LDA / GGA)
+    int    cf_family;       // Correlation functional family (LDA / GGA)
     int    nintp;           // Total number of XC numerical integral points
     int    nintp_blk;       // Maximum number of XC numerical integral points per block
     double *int_grid;       // Size 4-by-nintp, integral points and weights
@@ -66,6 +70,8 @@ struct TinyDFT_struct
     double *exc;            // Size nintp_blk, "energy per unit particle"
     double *vxc;            // Size nintp_blk, correlation potential
     double *XC_workbuf;     // Size nbf*nintp_blk, XC calculation work buffer
+    xc_func_type libxc_xf;  // Libxc exchange functional handle
+    xc_func_type libxc_cf;  // Libxc correlation functional handle
 
     // Temporary matrices used in multiple modules
     double *tmp_mat;        // Size nbf-by-nbf, used in: build_Dmat, CDIIS

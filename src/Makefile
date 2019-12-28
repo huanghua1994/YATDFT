@@ -4,11 +4,10 @@ LIB = libYATDFT.a
 
 BLAS_LIB       = -mkl=parallel
 SIMINT_INCDIR  = /home/mkurisu/Workspace/simint/build-avx/install/include
-SIMINT_LIBFILE = /home/mkurisu/Workspace/simint/build-avx/install/lib/libsimint.a
+LIBXC_INCDIR   = /home/mkurisu/Workspace/libxc/install/include
 
 DEFS    = -D__ALIGNLEN__=64
-INCS    = -I./ -I$(SIMINT_INCDIR)
-LIBS    = $(BLAS_LIB) $(SIMINT_LIBFILE) 
+INCS    = -I./ -I$(SIMINT_INCDIR) -I$(LIBXC_INCDIR)
 
 CFLAGS  = -Wall -g -O3 -qopenmp -std=gnu99 -xHost $(DEFS) $(BLAS_LIB)
 LDFLAGS = -lpthread -qopenmp $(BLAS_LIB)
