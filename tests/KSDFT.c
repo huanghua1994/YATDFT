@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 {
     if (argc < 4)
     {
-        printf("Usage: %s <basis> <xyz> <niter>\n", argv[0]);
+        printf("Usage: %s <basis> <xyz> <niter> <X-func ID> <C-func ID>\n", argv[0]);
         return 255;
     }
     
@@ -112,8 +112,15 @@ int main(int argc, char **argv)
     printf("TinyDFT compute Hcore, S, X matrices over,         elapsed time = %.3lf (s)\n", et - st);
     
     // Set up XC numerical integral environments
+    char xf_str[5] = "LDA_X";
+    char cf_str[8] = "LDA_C_XA";
     st = get_wtime_sec();
-    TinyDFT_setup_XC_integral(TinyDFT);
+    if (argc >= 6)
+    {
+        TinyDFT_setup_XC_integral(TinyDFT, argv[4], argv[5]);
+    } else {
+        TinyDFT_setup_XC_integral(TinyDFT, xf_str, cf_str);
+    }
     et = get_wtime_sec();
     printf("TinyDFT set up XC integral over, nintp = %8d, elapsed time = %.3lf (s)\n", TinyDFT->nintp, et - st);
     

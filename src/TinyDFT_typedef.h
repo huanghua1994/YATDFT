@@ -55,13 +55,17 @@ struct TinyDFT_struct
     double *FN_strip_buf;   // Size unknown, thread-private buffer for F_NP and F_NQ blocks with the same N
 
     // Matrices and arrays used in XC functional calculation
+    int    xfid;            // Exchange functional ID, default is LDA_X
+    int    cfid;            // Correlation functional ID, default is LDA_C_XALPHA
     int    nintp;           // Total number of XC numerical integral points
     int    nintp_blk;       // Maximum number of XC numerical integral points per block
     double *int_grid;       // Size 4-by-nintp, integral points and weights
     double *phi;            // Size nbf-by-nintp_blk, phi[i, :] are i-th basis 
                             // function values at some integral points
     double *rho;            // Size nintp_blk, electron density at some integral points
-    double *XC_workbuf;     // Size (nbf+2)*nintp_blk, XC calculation work buffer
+    double *exc;            // Size nintp_blk, "energy per unit particle"
+    double *vxc;            // Size nintp_blk, correlation potential
+    double *XC_workbuf;     // Size nbf*nintp_blk, XC calculation work buffer
 
     // Temporary matrices used in multiple modules
     double *tmp_mat;        // Size nbf-by-nbf, used in: build_Dmat, CDIIS

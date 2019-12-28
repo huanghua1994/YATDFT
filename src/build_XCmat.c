@@ -11,6 +11,7 @@
 #include "TinyDFT_typedef.h"
 #include "gen_int_grid.h"
 #include "build_XCmat.h"
+#include "eval_XC_func.h"
 
 // Flatten shell info to basis function info for XC calculation
 // Input parameter:
@@ -99,7 +100,7 @@ static void TinyDFT_flatten_shell_info_to_bf(TinyDFT_t TinyDFT)
 }
 
 // Set up exchange-correlation numerical integral environments
-void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT)
+void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char *cf_str)
 {
     TinyDFT_flatten_shell_info_to_bf(TinyDFT);
     
@@ -108,17 +109,27 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT)
         &TinyDFT->nintp, &TinyDFT->int_grid
     );
     
-    int nbf = TinyDFT->nbf;
+    int nbf   = TinyDFT->nbf;
     int nintp = TinyDFT->nintp;
     int nintp_blk = 1024;   // Calculate no more than 1024 points each time
     TinyDFT->nintp_blk = nintp_blk;
     TinyDFT->phi = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * nbf);
     TinyDFT->rho = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
-    TinyDFT->XC_workbuf = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * (nbf + 2));
+    TinyDFT->exc = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
+    TinyDFT->vxc = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
+    TinyDFT->XC_workbuf = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * (nbf + 4));
     assert(TinyDFT->phi != NULL);
     assert(TinyDFT->rho != NULL);
+    assert(TinyDFT->exc != NULL);
+    assert(TinyDFT->vxc != NULL);
     assert(TinyDFT->XC_workbuf != NULL);
-    TinyDFT->mem_size += (double) (DBL_SIZE * nintp_blk * (2 * nbf + 3));
+    TinyDFT->mem_size += (double) (DBL_SIZE * nintp_blk * (2 * nbf + 7));
+    
+    TinyDFT->xfid = LDA_X;
+    TinyDFT->cfid = LDA_C_XA;
+    if (strcmp(cf_str, "LDA_C_XA") == 0) TinyDFT->cfid = LDA_C_XA;
+    if (strcmp(cf_str, "LDA_C_PZ") == 0) TinyDFT->cfid = LDA_C_PZ;
+    if (strcmp(cf_str, "LDA_C_PW") == 0) TinyDFT->cfid = LDA_C_PW;
 }
 
 // Evaluate basis functions at specified integral grid points
@@ -230,7 +241,44 @@ static void TinyDFT_eval_electron_density(
     }
 }
 
-// Build partial DFT XC matrix using Xalpha functional and rho
+// Evaluate LDA XC functional and calculate XC energy
+// Input parameters:
+//   xfid    : Exchange functional ID
+//   cfid    : Correlation functional ID
+//   np      : Number of points
+//   rho     : Size np, electron density at some integral points
+//   ipw     : Size np, numerical integral weights of points in rho
+//   workbuf : Size np * 4
+// Output paramaters:
+//   exc      : Size np, "energy per unit particle", == G / rho
+//   vxc      : Size np, correlation potential, == \frac{\part G}{\part rho}
+//   <return> : XC energy, E_xc = \int G(rho(r)) dr
+static double TinyDFT_eval_LDA_XC_func(
+    const int xfid, const int cfid, const int np, const double *rho,
+    const double *ipw, double *workbuf, double *exc, double *vxc
+)
+{
+    double *ex = workbuf + np * 0;
+    double *ec = workbuf + np * 1;
+    double *vx = workbuf + np * 2;
+    double *vc = workbuf + np * 3;
+
+    eval_LDA_exc_vxc(xfid, np, rho, ex, vx);
+    eval_LDA_exc_vxc(cfid, np, rho, ec, vc);
+    
+    double E_xc = 0.0;
+    #pragma omp simd
+    for (int i = 0; i < np; i++)
+    {
+        exc[i] = ex[i] + ec[i];
+        vxc[i] = vx[i] + vc[i];
+        E_xc += exc[i] * rho[i] * ipw[i];
+    }
+    
+    return E_xc;
+}
+
+// Build partial DFT XC matrix using LDA functional and rho
 // and accumulate it to the final XC matrix
 // Input parameters:
 //   nbf     : Number of basis functions
@@ -239,44 +287,21 @@ static void TinyDFT_eval_electron_density(
 //   npt_phi : The first npt_phi phi values in phi will be used
 //   phi     : Size nbf-by-ld_phi, phi[i, :] are i-th basis function values
 //             at some integral points
-//   rho     : Size npt_phi, electron density at some integral points
+//   vxc     : Size npt_phi, correlation potential, will be overwritten by vxc .* ipw
 //   ipw     : Size npt_phi, numerical integral weights of points in rho
 //   beta    : 0.0 if this is the first call, otherwise 1.0
 //   workbuf : Size npt_phi * (nbf + 2)
 // Output parameter:
 //   XC_mat : Accumulated DFT XC matrix
-//   E_xc   : Sum of XC energy on the given grid points
-static double TinyDFT_build_XC_Xalpha_partial(
+static void TinyDFT_build_XC_LDA_partial(
     const int nbf, const int ld_phi, const int npt_phi, 
-    const double *phi, const double *rho, const double *ipw,
+    const double *phi, double *vxc, const double *ipw,
     const double beta, double *workbuf, double *XC_mat
 )
 {
-    // Xalpha energy: Exc = \int -alpha * (9/8) * (3/pi)^(1/3) * rho(r)^(4/3) dr
-    // Xalpha potential: vxc(r) = \frac{\delta Exc}{\delta rho}
-    // Exc = \int exc(r) * rho(r) dr
     // XC_{u,v} = \int phi_u(r) * vxc(r) * phi_v(r) dr
-    // We use exc and vxc here for using Libxc in the future
-    double E_xc = 0.0;
-    double *exc = workbuf;
-    double *vxc = exc + npt_phi;
-    double *phi_vxc_w = vxc + npt_phi;
-    
-    // (1) Evaluate exc, vxc, and XC energy
-    const double alpha = 0.7;
-    const double pow_3opi_1o3 = 0.984745021842696541;  // pow(3/M_PI, 1/3);
-    double vxc_coef = -alpha * (3.0/2.0) * pow_3opi_1o3;
-    double exc_coef = -alpha * (9.0/8.0) * pow_3opi_1o3;
+    double *phi_vxc_w = workbuf + npt_phi * 4;
     #pragma omp simd
-    for (int i = 0; i < npt_phi; i++) 
-    {
-        double rho_i_13 = pow(rho[i], 0.333333333333333333);
-        exc[i] = exc_coef * rho_i_13;
-        vxc[i] = vxc_coef * rho_i_13;
-        E_xc += exc[i] * rho[i] * ipw[i];
-    }
-    
-    // (2) XC_{u,v} = \int phi_u(r) * vxc(r) * phi_v(r) dr
     for (int i = 0; i < npt_phi; i++) vxc[i] *= ipw[i];
     #pragma omp parallel for
     for (int i = 0; i < nbf; i++)
@@ -291,8 +316,6 @@ static double TinyDFT_build_XC_Xalpha_partial(
         CblasRowMajor, CblasNoTrans, CblasTrans, nbf, nbf, npt_phi,
         1.0, phi, ld_phi, phi_vxc_w, npt_phi, beta, XC_mat, nbf
     );
-    
-    return E_xc;
 }
 
 // Construct DFT exchange-correlation matrix
@@ -300,11 +323,15 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
 {
     double E_xc = 0.0;
     
-    int nbf = TinyDFT->nbf;
+    int xfid  = TinyDFT->xfid;
+    int cfid  = TinyDFT->cfid;
+    int nbf   = TinyDFT->nbf;
     int nintp = TinyDFT->nintp;
     int nintp_blk = TinyDFT->nintp_blk;
     double *phi = TinyDFT->phi;
     double *rho = TinyDFT->rho;
+    double *exc = TinyDFT->exc;
+    double *vxc = TinyDFT->vxc;
     double *ipw = TinyDFT->int_grid + 3 * nintp;
     double *workbuf = TinyDFT->XC_workbuf;
 
@@ -324,8 +351,13 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
         
         TinyDFT_eval_electron_density(nbf, D_mat, nintp_blk, curr_nintp_blk, phi, workbuf, rho);
         
-        E_xc += TinyDFT_build_XC_Xalpha_partial(
-            nbf, nintp_blk, curr_nintp_blk, phi, rho, 
+        E_xc += TinyDFT_eval_LDA_XC_func(
+            xfid, cfid, curr_nintp_blk, rho, ipw + sintp, 
+            workbuf, exc, vxc
+        );
+        
+        TinyDFT_build_XC_LDA_partial(
+            nbf, nintp_blk, curr_nintp_blk, phi, vxc, 
             ipw + sintp, beta, workbuf, XC_mat
         );
     }

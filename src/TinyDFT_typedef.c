@@ -150,6 +150,8 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->int_grid   = NULL;
     TinyDFT->phi        = NULL;
     TinyDFT->rho        = NULL;
+    TinyDFT->exc        = NULL;
+    TinyDFT->vxc        = NULL;
     TinyDFT->XC_workbuf = NULL;
     
     // Allocate memory for matrices used in multiple modules
@@ -265,6 +267,8 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     free(TinyDFT->int_grid);
     ALIGN64B_FREE(TinyDFT->phi);
     ALIGN64B_FREE(TinyDFT->rho);
+    ALIGN64B_FREE(TinyDFT->exc);
+    ALIGN64B_FREE(TinyDFT->vxc);
     ALIGN64B_FREE(TinyDFT->XC_workbuf);
     
     // Free matrices used in multiple modules

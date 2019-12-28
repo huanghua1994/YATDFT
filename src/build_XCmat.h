@@ -8,9 +8,11 @@ extern "C" {
 // Set up exchange-correlation numerical integral environments
 // Input parameter:
 //   TinyDFT : Initialized TinyDFT structure
+//   xf_str  : Exchange function string, default is "LDA_X" (Slater exchange)
+//   cf_str  : Correlation function string, default is "LDA_C_XALPHA" (Slater's Xalpha)
 // Output parameters:
 //   TinyDFT : TinyDFT structure with XC integral environment ready
-void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT);
+void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char *cf_str);
 
 // Construct DFT exchange-correlation matrix
 // Input parameters:

@@ -15,7 +15,7 @@ LDFLAGS = -lpthread -qopenmp $(BLAS_LIB)
 
 OBJS =  CMS_basis.o CMS_simint.o utils.o ket_sp_list.o TinyDFT_typedef.o \
 		acc_JKmat.o build_HF_mat.o gen_Lebedev_grid.o gen_int_grid.o \
-        build_XCmat.o CDIIS.o build_Dmat.o 
+        eval_XC_func.o build_XCmat.o CDIIS.o build_Dmat.o 
 
 $(LIB): $(OBJS) 
 	$(AR) $@ $^
@@ -47,7 +47,10 @@ gen_Lebedev_grid.o: Makefile gen_Lebedev_grid.h gen_Lebedev_grid.c
 gen_int_grid.o: Makefile gen_Lebedev_grid.h gen_int_grid.h gen_int_grid.c 
 	$(CC) $(CFLAGS) $(INCS) -c gen_int_grid.c -o $@ 
 
-build_XCmat.o: Makefile gen_int_grid.h build_XCmat.h build_XCmat.c 
+eval_XC_func.o: Makefile gen_int_grid.h eval_XC_func.h eval_XC_func.c 
+	$(CC) $(CFLAGS) $(INCS) -c eval_XC_func.c -o $@ 
+
+build_XCmat.o: Makefile gen_int_grid.h eval_XC_func.h build_XCmat.h build_XCmat.c 
 	$(CC) $(CFLAGS) $(INCS) -c build_XCmat.c -o $@ 
 
 CDIIS.o: Makefile TinyDFT_typedef.h CDIIS.h CDIIS.c 
