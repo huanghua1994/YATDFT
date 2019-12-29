@@ -10,8 +10,13 @@
 #define  LDA_C_PW                 12  // Perdew & Wang 92 correlation
 #define  GGA_X_PBE               101  // Perdew, Burke & Ernzerhof exchange
 #define  GGA_X_B88               106  // Becke 88 exchange
-#define  GGA_C_PBE               130  // Perdew, Burke & Ernzerhof correlation  
+#define  GGA_X_G96               107  // Gill 96 exchange
+#define  GGA_X_PW86              108  // Perdew & Wang 86 exchange
+#define  GGA_X_PW91              109  // Perdew & Wang 91 exchange
+#define  GGA_C_PBE               130  // Perdew, Burke & Ernzerhof correlation
+#define  GGA_C_LYP               131  // Lee, Yang & Parr correlation
 #define  GGA_C_P86               132  // Perdew 86 correlation
+#define  GGA_C_PW91              134  // Perdew & Wang 91 correlation
 
 const static int num_impl_xc_func = 4;
 const static int impl_xc_func[4]  = {LDA_X, LDA_C_XA, LDA_C_PZ, LDA_C_PW};

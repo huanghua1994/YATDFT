@@ -142,8 +142,14 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     
     if (strcmp(xf_str, "GGA_X_PBE")  == 0) { TinyDFT->xf_id = GGA_X_PBE;  TinyDFT->xf_family = FAMILY_GGA; }
     if (strcmp(xf_str, "GGA_X_B88")  == 0) { TinyDFT->xf_id = GGA_X_B88;  TinyDFT->xf_family = FAMILY_GGA; }
+    if (strcmp(xf_str, "GGA_X_G96")  == 0) { TinyDFT->xf_id = GGA_X_G96;  TinyDFT->xf_family = FAMILY_GGA; }
+    if (strcmp(xf_str, "GGA_X_PW86") == 0) { TinyDFT->xf_id = GGA_X_PW86; TinyDFT->xf_family = FAMILY_GGA; }
+    if (strcmp(xf_str, "GGA_X_PW91") == 0) { TinyDFT->xf_id = GGA_X_PW91; TinyDFT->xf_family = FAMILY_GGA; }
+    
     if (strcmp(cf_str, "GGA_C_PBE")  == 0) { TinyDFT->cf_id = GGA_C_PBE;  TinyDFT->cf_family = FAMILY_GGA; }
+    if (strcmp(cf_str, "GGA_C_LYP")  == 0) { TinyDFT->cf_id = GGA_C_LYP;  TinyDFT->cf_family = FAMILY_GGA; }
     if (strcmp(cf_str, "GGA_C_P86")  == 0) { TinyDFT->cf_id = GGA_C_P86;  TinyDFT->cf_family = FAMILY_GGA; }
+    if (strcmp(cf_str, "GGA_C_PW91") == 0) { TinyDFT->cf_id = GGA_C_PW91; TinyDFT->cf_family = FAMILY_GGA; }
     
     TinyDFT->xf_impl = 0;
     TinyDFT->cf_impl = 0;
@@ -482,9 +488,6 @@ static double TinyDFT_eval_GGA_XC_func(
     double *vsigmax = workbuf + npt * 4;
     double *vsigmac = workbuf + npt * 5;
 
-    // Avoid rho[i] == 0
-    for (int i = 0; i < npt; i++) rho[i] += 1e-60;
-
     if (xf_impl == 1)
     {
         eval_GGA_exc_vxc(xf_id, npt, rho, sigma, ex, vrhox, vsigmax);
@@ -617,6 +620,7 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
     double *bf_center = TinyDFT->bf_center;
     double *phi       = TinyDFT->phi;
     double *rho       = TinyDFT->rho;
+    double *sigma     = TinyDFT->rho + 4 * nintp_blk;
     double *exc       = TinyDFT->exc;
     double *vxc       = TinyDFT->vxc;
     double *vrho      = TinyDFT->vxc;
@@ -667,7 +671,7 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
         {
             E_xc += TinyDFT_eval_GGA_XC_func(
                 xf_id, cf_id, xf_impl, cf_impl, 
-                npt, rho, vsigma, curr_ipw, 
+                npt, rho, sigma, curr_ipw, 
                 workbuf, p_libxc_xf, p_libxc_cf, 
                 exc, vrho, vsigma
             );
@@ -680,7 +684,6 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
         }
     }
     
-    printf("E_xc = %lf\n", E_xc);
     return E_xc;
 }
 
