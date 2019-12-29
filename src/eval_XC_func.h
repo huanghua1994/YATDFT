@@ -8,6 +8,10 @@
 #define  LDA_C_XA                  6  // Slater Xalpha correlation
 #define  LDA_C_PZ                  9  // Perdew & Zunger 81 correlation
 #define  LDA_C_PW                 12  // Perdew & Wang 92 correlation
+#define  GGA_X_PBE               101  // Perdew, Burke & Ernzerhof exchange
+#define  GGA_X_B88               106  // Becke 88 exchange
+#define  GGA_C_PBE               130  // Perdew, Burke & Ernzerhof correlation  
+#define  GGA_C_P86               132  // Perdew 86 correlation
 
 const static int num_impl_xc_func = 4;
 const static int impl_xc_func[4]  = {LDA_X, LDA_C_XA, LDA_C_PZ, LDA_C_PW};
@@ -15,11 +19,26 @@ const static int impl_xc_func[4]  = {LDA_X, LDA_C_XA, LDA_C_PZ, LDA_C_PW};
 // Evaluate LDA XC functional E_xc = \int G(rho(r)) dr
 // Input parameters:
 //   fid : XC functional ID
-//   np  : Total number of points
-//   rho : Size np, electron density at each point
+//   npt : Total number of points
+//   rho : Size npt, electron density at each point
 // Output parameters:
-//   exc : Size np, "energy per unit particle", == G / rho
-//   vxc : Size np, correlation potential, == \frac{\part G}{\part rho}
-void eval_LDA_exc_vxc(const int fid, const int np, const double *rho, double *exc, double *vxc);
+//   exc : Size npt, = G / rho
+//   vxc : Size npt, = \frac{\part G}{\part rho}
+void eval_LDA_exc_vxc(const int fid, const int npt, const double *rho, double *exc, double *vxc);
+
+// Evaluate GGA XC functional E_xc = \int G(rho(r)) dr
+// Input parameters:
+//   fid   : XC functional ID
+//   npt   : Total number of points
+//   rho   : Size npt, electron density at each point
+//   sigma : Size npt, contracted gradient of rho
+// Output parameters:
+//   exc    : Size npt, = G / rho
+//   vrho   : Size npt, = \frac{\part G}{\part rho}
+//   vsigma : Size npt, = \frac{\part G}{\part sigma}
+void eval_GGA_exc_vxc(
+    const int fid, const int npt, const double *rho, const double *sigma, 
+    double *exc, double *vrho, double *vsigma
+);
 
 #endif

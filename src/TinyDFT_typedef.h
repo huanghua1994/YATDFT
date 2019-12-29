@@ -28,7 +28,7 @@ struct TinyDFT_struct
     int    *shell_bf_num;   // Size nshell, Number of basis function in each shell
     double prim_scrtol;     // Primitive screening 
     double shell_scrtol2;   // Square of the shell screening tolerance
-    double *sp_scrval;      // Size num_total_sp, square of screening values (upper bound) of each shell pair
+    double *sp_scrval;      // Size num_total_sp, square of screening values of each shell pair
     Simint_t   simint;      // Simint object for ERI, handled by libCMS
     BasisSet_t basis;       // Basis set object for storing chemical system info, handled by libCMS
     
@@ -44,15 +44,15 @@ struct TinyDFT_struct
     
     // Matrices and arrays used only in build_HF_mat
     int    max_JKacc_buf;   // Maximum buffer size for each thread's accumulating J and K matrix
-    int    *blk_mat_ptr;    // Size num_total_sp, index of a given block's top-left element in the blocked matrix
+    int    *blk_mat_ptr;    // Size num_total_sp, offsets of blocks in the blocked matrix
     int    *Mpair_flag;     // Size nshell*nthread, flags for marking if (M, i) is updated 
     int    *Npair_flag;     // Size nshell*nthread, flags for marking if (N, i) is updated 
     double *J_blk_mat;      // Size nbf-by-nbf, blocked J matrix
     double *K_blk_mat;      // Size nbf-by-nbf, blocked K matrix
     double *D_blk_mat;      // Size nbf-by-nbf, blocked D matrix
     double *JKacc_buf;      // Size unknown, all thread's buffer for accumulating J and K matrices
-    double *FM_strip_buf;   // Size unknown, thread-private buffer for F_MP and F_MQ blocks with the same M
-    double *FN_strip_buf;   // Size unknown, thread-private buffer for F_NP and F_NQ blocks with the same N
+    double *FM_strip_buf;   // Size unknown, thread-private buffer for F_MP and F_MQ blocks
+    double *FN_strip_buf;   // Size unknown, thread-private buffer for F_NP and F_NQ blocks
 
     // Matrices and arrays used in XC functional calculation
     int    xf_id;           // Exchange functional ID, default is LDA_X
@@ -64,11 +64,15 @@ struct TinyDFT_struct
     int    nintp;           // Total number of XC numerical integral points
     int    nintp_blk;       // Maximum number of XC numerical integral points per block
     double *int_grid;       // Size 4-by-nintp, integral points and weights
-    double *phi;            // Size nbf-by-nintp_blk, phi[i, :] are i-th basis 
-                            // function values at some integral points
-    double *rho;            // Size nintp_blk, electron density at some integral points
-    double *exc;            // Size nintp_blk, "energy per unit particle"
-    double *vxc;            // Size nintp_blk, correlation potential
+    double *phi;            // Size 4*nbf-by-nintp_blk. In each nbf-by-nintp_blk block,
+                            // the i-th row is the i-th basis function values (its 1st order 
+                            // derivatives on x, y, z directions) at some integral points
+    double *rho;            // Size 5*nintp_blk, electron density, its 1st order derivatives
+                            // on x, y, z directions, and its contracted gradient (sigma)
+                            // at some integral points
+    double *exc;            // Size nintp_blk, = G / rho
+    double *vxc;            // Size nintp_blk, = \frac{\part G}{\part rho}
+    double *vsigma;         // Size nintp_blk, = \frac{\part G}{\part sigma}
     double *XC_workbuf;     // Size nbf*nintp_blk, XC calculation work buffer
     xc_func_type libxc_xf;  // Libxc exchange functional handle
     xc_func_type libxc_cf;  // Libxc correlation functional handle

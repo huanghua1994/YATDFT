@@ -7,21 +7,21 @@
 
 // ========================= LDA functionals ========================= //
 // Input parameters:
-//   np  : Total number of points
-//   rho : Size np, electron density at each point
+//   npt : Total number of points
+//   rho : Size npt, electron density at each point
 // Output parameters:
-//   exc : Size np, "energy per unit particle", == G / rho
-//   vxc : Size np, correlation potential, == \frac{\part G}{\part rho}
+//   exc : Size npt, = G / rho
+//   vxc : Size npt, = \frac{\part G}{\part rho}
 
 // Slater exchange
-void eval_LDA_exc_vxc_X(const int np, const double *rho, double *exc, double *vxc)
+void eval_LDA_exc_vxc_X(const int npt, const double *rho, double *exc, double *vxc)
 {
     const double c0 = 0.9847450218426965; // (3/pi)^(1/3)
     const double a  = 2.0/3.0;
     const double c1 = -a * (9.0/8.0) * c0;
     const double c2 = -a * (3.0/2.0) * c0;
     #pragma omp simd
-    for (int i = 0; i < np; i++)
+    for (int i = 0; i < npt; i++)
     {
         double rho_cbrt = cbrt(rho[i]);
         exc[i] = c1 * rho_cbrt;
@@ -30,14 +30,14 @@ void eval_LDA_exc_vxc_X(const int np, const double *rho, double *exc, double *vx
 }
 
 // Slater Xalpha correlation (Xalpha = 0.7 - 2/3)
-void eval_LDA_exc_vxc_XA(const int np, const double *rho, double *exc, double *vxc)
+void eval_LDA_exc_vxc_XA(const int npt, const double *rho, double *exc, double *vxc)
 {
     const double c0 = 0.9847450218426965;   // (3/pi)^(1/3)
     const double a  = 0.7 - (2.0/3.0);      // alpha = 0.7, minus 2/3 exchange part
     const double c1 = -a * (9.0/8.0) * c0;
     const double c2 = -a * (3.0/2.0) * c0;
     #pragma omp simd
-    for (int i = 0; i < np; i++)
+    for (int i = 0; i < npt; i++)
     {
         double rho_cbrt = cbrt(rho[i]);
         exc[i] = c1 * rho_cbrt;
@@ -46,7 +46,7 @@ void eval_LDA_exc_vxc_XA(const int np, const double *rho, double *exc, double *v
 }
 
 // LDA Perdew-Zunger correlation (PZ81)
-void eval_LDA_exc_vxc_PZ81(const int np, const double *rho, double *exc, double *vxc)
+void eval_LDA_exc_vxc_PZ81(const int npt, const double *rho, double *exc, double *vxc)
 {
     // PZ81 correlation parameters
     const double A  =  0.0311;
@@ -66,7 +66,7 @@ void eval_LDA_exc_vxc_PZ81(const int np, const double *rho, double *exc, double 
     const double t4 = (4.0/3.0) * g1 * b2;
     
     #pragma omp simd
-    for (int i = 0; i < np; i++)
+    for (int i = 0; i < npt; i++)
     {
         double rho_cbrt = cbrt(rho[i]) + 1e-20;
         double rs = c0 / rho_cbrt;  // rs = (3/(4*pi*rho))^(1/3)
@@ -85,7 +85,7 @@ void eval_LDA_exc_vxc_PZ81(const int np, const double *rho, double *exc, double 
 }
 
 // LDA Perdew-Wang correlation (PW92)
-void eval_LDA_exc_vxc_PW92(const int np, const double *rho, double *exc, double *vxc)
+void eval_LDA_exc_vxc_PW92(const int npt, const double *rho, double *exc, double *vxc)
 {
     // PW92 correlation parameters
     const double p  = 1.0;
@@ -104,7 +104,7 @@ void eval_LDA_exc_vxc_PW92(const int np, const double *rho, double *exc, double 
     const double t2 = 2.0 * (p+1.0) * b4;
     
     #pragma omp simd
-    for (int i = 0; i < np; i++)
+    for (int i = 0; i < npt; i++)
     {
         double rho_cbrt = cbrt(rho[i]) + 1e-20;
         double rs    = c0 / rho_cbrt;   // rs = (3/(4*pi*rho))^(1/3)
@@ -124,14 +124,33 @@ void eval_LDA_exc_vxc_PW92(const int np, const double *rho, double *exc, double 
     }
 }
 
-// Calculate LDA XC functional E_xc = \int G(rho(r)) dr
-void eval_LDA_exc_vxc(const int fid, const int np, const double *rho, double *exc, double *vxc)
+// Evaluate LDA XC functional E_xc = \int G(rho(r)) dr
+void eval_LDA_exc_vxc(const int fid, const int npt, const double *rho, double *exc, double *vxc)
 {
     switch (fid)
     {
-        case LDA_X:    eval_LDA_exc_vxc_X   (np, rho, exc, vxc); break;
-        case LDA_C_XA: eval_LDA_exc_vxc_XA  (np, rho, exc, vxc); break;
-        case LDA_C_PZ: eval_LDA_exc_vxc_PZ81(np, rho, exc, vxc); break;
-        case LDA_C_PW: eval_LDA_exc_vxc_PW92(np, rho, exc, vxc); break;
+        case LDA_X:    eval_LDA_exc_vxc_X   (npt, rho, exc, vxc); break;
+        case LDA_C_XA: eval_LDA_exc_vxc_XA  (npt, rho, exc, vxc); break;
+        case LDA_C_PZ: eval_LDA_exc_vxc_PZ81(npt, rho, exc, vxc); break;
+        case LDA_C_PW: eval_LDA_exc_vxc_PW92(npt, rho, exc, vxc); break;
     }
+}
+
+// ========================= GGA functionals ========================= //
+// Input parameters:
+//   npt   : Total number of points
+//   rho   : Size npt, electron density at each point
+//   sigma : Size npt, contracted gradient of rho
+// Output parameters:
+//   exc    : Size npt, = G / rho
+//   vrho   : Size npt, = \frac{\part G}{\part rho}
+//   vsigma : Size npt, = \frac{\part G}{\part sigma}
+
+// Evaluate GGA XC functional E_xc = \int G(rho(r)) dr
+void eval_GGA_exc_vxc(
+    const int fid, const int npt, const double *rho, const double *sigma, 
+    double *exc, double *vrho, double *vsigma
+)
+{
+    // To be done?
 }
