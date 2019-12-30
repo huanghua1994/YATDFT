@@ -18,9 +18,10 @@ YATDFT can construct:
 * HF exchange matrix
 * CDIIS Pulay mixing for Fock matrix
 * Density matrix (from Fock matrix or SAD initial guess)
-* DFT exchange-correlation matrix (LDA, GGA)
-  * Built-in XC functionals: LDA Slater exchange, LDA Slater Xalpha correlation (alpha = 0.7), LDA PZ81, LDA PW92
-  * XC functionals from Libxc: GGA PBE exchange & correlation, GGA PW91 exchange & correlation, GGA B88, G96, PW86 exchange, GGA LYP, P86 correlation
+* DFT exchange-correlation matrix
+  * Built-in LDA XC functionals: Slater exchange, Slater Xalpha correlation (alpha = 0.7), PZ81 correlation , PW92 correlation  
+  * Built-in GGA XC functionals: PBE exchange & correlation
+  * GGA XC functionals from Libxc: PW91 exchange & correlation, B88 exchange, G96 exchange, PW86 exchange, LYP correlation, P86 correlation
 
 ## Compiling and Using YATDFT 
 

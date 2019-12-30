@@ -18,8 +18,11 @@
 #define  GGA_C_P86               132  // Perdew 86 correlation
 #define  GGA_C_PW91              134  // Perdew & Wang 91 correlation
 
-const static int num_impl_xc_func = 4;
-const static int impl_xc_func[4]  = {LDA_X, LDA_C_XA, LDA_C_PZ, LDA_C_PW};
+const static int num_impl_xc_func = 6;
+const static int impl_xc_func[6]  = {
+    LDA_X, LDA_C_XA, LDA_C_PZ, LDA_C_PW, 
+    GGA_X_PBE, GGA_C_PBE
+};
 
 // Evaluate LDA XC functional E_xc = \int G(rho(r)) dr
 // Input parameters:
