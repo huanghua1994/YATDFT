@@ -59,9 +59,18 @@ void TinyDFT_CDIIS(TinyDFT_t TinyDFT, const double *X_mat, const double *S_mat, 
         1.0, tmp_mat, nbf, S_mat, nbf, 0.0, FDS_mat, nbf
     );
     
-    // Residual = X^T * (FDS - FDS^T) * X
-    // Use tmp_mat to store FDS - FDS^T
-    mkl_domatadd('R', 'N', 'T', nbf, nbf, 1.0, FDS_mat, nbf, -1.0, FDS_mat, nbf, tmp_mat, nbf);
+    // Residual = X^T * (FDS - FDS^T) * X, use tmp_mat to store FDS - FDS^T
+    #pragma omp parallel for
+    for (int i = 0; i < nbf; i++)
+    {
+        double *tmp_i = tmp_mat + i * nbf;
+        double *FDS_mat_ri = FDS_mat + i * nbf;
+        double *FDS_mat_ci = FDS_mat + i;
+        #pragma omp simd
+        for (int j = 0; j < nbf; j++)
+            tmp_i[j] = FDS_mat_ri[j] - FDS_mat_ci[j * nbf];
+    }
+    
     // Use FDS_mat to store X^T * (FDS - FDS^T)
     cblas_dgemm(
         CblasRowMajor, CblasTrans, CblasNoTrans, nbf, nbf, nbf,

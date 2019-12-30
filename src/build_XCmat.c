@@ -113,13 +113,15 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     int nbf   = TinyDFT->nbf;
     int nintp = TinyDFT->nintp;
     int nintp_blk = 1024;   // Calculate no more than 1024 points each time
-    TinyDFT->nintp_blk = nintp_blk;
+    size_t workbuf_msize = DBL_SIZE * nintp_blk * (nbf + 6);
+    workbuf_msize += DBL_SIZE * nbf * nbf;
+    TinyDFT->nintp_blk  = nintp_blk;
     TinyDFT->phi        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * nbf * 4);
     TinyDFT->rho        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * 5);
     TinyDFT->exc        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
     TinyDFT->vxc        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
     TinyDFT->vsigma     = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
-    TinyDFT->XC_workbuf = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * (nbf + 6));
+    TinyDFT->XC_workbuf = (double*) ALIGN64B_MALLOC(workbuf_msize);
     assert(TinyDFT->phi        != NULL);
     assert(TinyDFT->rho        != NULL);
     assert(TinyDFT->exc        != NULL);
@@ -128,7 +130,7 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     assert(TinyDFT->XC_workbuf != NULL);
     TinyDFT->mem_size += (double) (DBL_SIZE * nintp_blk * nbf * 4);
     TinyDFT->mem_size += (double) (DBL_SIZE * nintp_blk * 8);
-    TinyDFT->mem_size += (double) (DBL_SIZE * nintp_blk * (nbf + 6));
+    TinyDFT->mem_size += (double) (workbuf_msize);
     
     TinyDFT->xf_id = LDA_X;
     TinyDFT->cf_id = LDA_C_XA;
@@ -302,7 +304,7 @@ static void TinyDFT_eval_electron_density(
     // At the g-th grid point:
     // (1) electron density: rho_{g} = \sum_{u,v} phi_{u,g} * D_{u,v} * phi_{v,g}
     // (2) 1st derivatives of rho_{g}: drho_dx{g}, drho_dy{g}, drho_dz{g}, where 
-    //     drho_dk{g} = 2 \sum_{u,v} D_{u,v} * phi_{v,g} * dphi_dk_{u,g}
+    //     drho_dk{g} = 2 \sum_{u,v} D_{u,v} * phi_{v,g} * dphi_dk_{u,g}, k = x, y, z
     // (3) contracted gradient of rho_{g}: sigma_{g} = drho_dx{g}^2 + drho_dz{g}^2 + drho_dz{g}^2
     
     // 1. D_phi_{u,g} = \sum_{v} D_{u,v} * phi_{v,g}
@@ -312,7 +314,7 @@ static void TinyDFT_eval_electron_density(
     );
     
     // 2. rho_{g}    = 2 * \sum_{u} D_phi_{u,g} * phi_{u,g}
-    //    drho_dk{g} = 2 * (2 * \sum_{u} D_phi_{u,g} * dphi_dk_{u,g})
+    //    drho_dk{g} = 2 * (2 * \sum_{u} D_phi_{u,g} * dphi_dk_{u,g}), k = x, y, z
     // Note: the "2 *" before \sum is that we use D = Cocc * Cocc^T
     //       instead of D = 2 * Cocc * Cocc^T outside
     int nthread = omp_get_num_threads();
@@ -455,7 +457,6 @@ static void TinyDFT_build_XC_LDA_partial(
     );
 }
 
-
 // Evaluate GGA XC functional and calculate XC energy
 // Input parameters:
 //   xf_id      : Exchange functional ID
@@ -508,7 +509,7 @@ static double TinyDFT_eval_GGA_XC_func(
     {
         exc[i]    = ex[i]      + ec[i];
         vrho[i]   = vrhox[i]   + vrhoc[i];
-        vsigma[i] = vsigmax[i] + vsigmac[i];  // source of bug??
+        vsigma[i] = vsigmax[i] + vsigmac[i];
         E_xc += exc[i] * rho[i] * ipw[i];
     }
     
@@ -533,23 +534,23 @@ static double TinyDFT_eval_GGA_XC_func(
 //   vsigma  : Size npt, \frac{\part G}{\part sigma}, will be multiplied by 2*ipw
 //   ipw     : Size npt, numerical integral weights of points in rho
 //   beta    : 0.0 if this is the first call, otherwise 1.0
-//   workbuf : Size npt * (nbf + 6)
+//   workbuf : Size npt * (nbf + 6) + nbf * nbf
 // Output parameter:
 //   XC_mat : Accumulated DFT XC matrix
 static void TinyDFT_build_XC_GGA_partial(
-    const int nbf, const int npt, const int ld_phi, const double *phi, 
+    const int nbf, const int npt, const int ld_phi, double *phi, 
     const int ld_rho, const double *rho, double *vrho, double *vsigma, 
     const double *ipw, const double beta, double *workbuf, double *XC_mat
 )
 {
-    // 1. \sum_{g} phi_{u,g} * vrho_{g} * ipw_{g} * phi_{v,g} 
+    // 1. \sum_{g} vrho_{g} * ipw_{g} * phi_{u,g} * phi_{v,g} 
     double *phi_vrho_w = workbuf + npt * 6;
     #pragma omp simd
     for (int g = 0; g < npt; g++) vrho[g] *= ipw[g];
     #pragma omp parallel for
     for (int u = 0; u < nbf; u++)
     {
-        const double *phi_u = phi + u * ld_phi;
+        double *phi_u = phi + u * ld_phi;
         double *phi_vrho_w_u = phi_vrho_w + u * npt;
         #pragma omp simd
         for (int g = 0; g < npt; g++)
@@ -560,43 +561,60 @@ static void TinyDFT_build_XC_GGA_partial(
         1.0, phi, ld_phi, phi_vrho_w, npt, beta, XC_mat, nbf
     );
     
-    // 2.1 \sum_{g} ipw_{g} * 2 * vsigma_{g} * [drho_dx_{g} * (phi_{u,g} * dphi_dx_{v,g} + phi_{v,g} * dphi_dx_{u,g})]
-    // 2.2 \sum_{g} ipw_{g} * 2 * vsigma_{g} * [drho_dy_{g} * (phi_{u,g} * dphi_dy_{v,g} + phi_{v,g} * dphi_dy_{u,g})]
-    // 2.3 \sum_{g} ipw_{g} * 2 * vsigma_{g} * [drho_dz_{g} * (phi_{u,g} * dphi_dz_{v,g} + phi_{v,g} * dphi_dz_{u,g})]
-    const double *dphi_dx = phi + nbf * ld_phi * 1;
-    const double *dphi_dy = phi + nbf * ld_phi * 2;
-    const double *dphi_dz = phi + nbf * ld_phi * 3;
+    // 2. For k = x, y, z, \sum_{g} 2*ipw_{g}*vsigma_{g}*drho_dk_{g} * (phi_{u,g}*dphi_dk_{v,g} + phi_{v,g}*dphi_dk_{u,g})
+    double *dphi_dx = phi + nbf * ld_phi * 1;
+    double *dphi_dy = phi + nbf * ld_phi * 2;
+    double *dphi_dz = phi + nbf * ld_phi * 3;
     const double *drho_dx = rho + ld_rho * 1;
     const double *drho_dy = rho + ld_rho * 2;
     const double *drho_dz = rho + ld_rho * 3;
+    // (1) Combine ipw with vsigma
     #pragma omp simd
     for (int g = 0; g < npt; g++) vsigma[g] *= 2.0 * ipw[g];
+    // (2) Combine ipw, vsigma with phi; combine drho_dk with dphi_dk, k = x, y, z
     #pragma omp parallel for
     for (int u = 0; u < nbf; u++)
     {
         int phi_offset_u = u * ld_phi;
-        const double *phi_u     = phi     + phi_offset_u;
-        const double *dphi_dx_u = dphi_dx + phi_offset_u;
-        const double *dphi_dy_u = dphi_dy + phi_offset_u;
-        const double *dphi_dz_u = dphi_dz + phi_offset_u;
-        for (int v = 0; v < nbf; v++)
+        double *phi_u     = phi     + phi_offset_u;
+        double *dphi_dx_u = dphi_dx + phi_offset_u;
+        double *dphi_dy_u = dphi_dy + phi_offset_u;
+        double *dphi_dz_u = dphi_dz + phi_offset_u;
+        #pragma omp simd
+        for (int g = 0; g < npt; g++)
         {
-            int phi_offset_v = v * ld_phi;
-            const double *phi_v     = phi     + phi_offset_v;
-            const double *dphi_dx_v = dphi_dx + phi_offset_v;
-            const double *dphi_dy_v = dphi_dy + phi_offset_v;
-            const double *dphi_dz_v = dphi_dz + phi_offset_v;
-            
-            double res0 = 0.0, res1 = 0.0, res2 = 0.0;
-            #pragma omp simd 
-            for (int g = 0; g < npt; g++)
-            {
-                res0 += vsigma[g] * drho_dx[g] * (phi_u[g] * dphi_dx_v[g] + phi_v[g] * dphi_dx_u[g]);
-                res1 += vsigma[g] * drho_dy[g] * (phi_u[g] * dphi_dy_v[g] + phi_v[g] * dphi_dy_u[g]);
-                res2 += vsigma[g] * drho_dz[g] * (phi_u[g] * dphi_dz_v[g] + phi_v[g] * dphi_dz_u[g]);
-            }
-            XC_mat[u * nbf + v] += res0 + res1 + res2;
+            phi_u[g]     *= vsigma[g];
+            dphi_dx_u[g] *= drho_dx[g];
+            dphi_dy_u[g] *= drho_dy[g];
+            dphi_dz_u[g] *= drho_dz[g];
         }
+    }
+    // (3) For k = x, y, z, use dgemm to compute and accumulate 
+    // tmp_mat = \sum_{g} (2*ipw_{g}*vsigma_{g}*phi_{u,g}) * (drho_dk_{g}*dphi_dk_{v,g}), 
+    // the transpose of tmp_mat gives us another half of formula 2.
+    double *tmp_mat = workbuf + npt * (nbf + 6);
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasTrans, nbf, nbf, npt,
+        1.0, phi, ld_phi, dphi_dx, ld_phi, 0.0, tmp_mat, nbf
+    );
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasTrans, nbf, nbf, npt,
+        1.0, phi, ld_phi, dphi_dy, ld_phi, 1.0, tmp_mat, nbf
+    );
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasTrans, nbf, nbf, npt,
+        1.0, phi, ld_phi, dphi_dz, ld_phi, 1.0, tmp_mat, nbf
+    );
+    #pragma omp parallel for simd 
+    for (int i = 0; i < nbf * nbf; i++) XC_mat[i] += tmp_mat[i];
+    #pragma omp parallel for
+    for (int u = 0; u < nbf; u++)
+    {
+        double *XC_mat_u  = XC_mat  + u * nbf;
+        double *tmp_mat_u = tmp_mat + u;
+        #pragma omp simd
+        for (int v = 0; v < nbf; v++)
+            XC_mat_u[v] += tmp_mat_u[v * nbf];
     }
 }
 
