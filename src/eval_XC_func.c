@@ -176,7 +176,7 @@ static void eval_GGA_exc_vxc_X_PBE(
     #pragma omp simd
     for (int i = 0; i < npt; i++)
     {
-        double rho_1_3  = cbrt(rho[i]) + 1e-30;
+        double rho_1_3  = cbrt(rho[i]);
         double rho_n1_3 = 1.0 / rho_1_3;
         double rho_n2_3 = rho_n1_3 * rho_n1_3;
         double inv_rho  = rho_n2_3 * rho_n1_3;
@@ -190,6 +190,86 @@ static void eval_GGA_exc_vxc_X_PBE(
         exc[i]    = 0.75 * t34;
         vrho[i]   = t34 + rho_n1_3 * inv_rho2 * t41 * t50 * r24;
         vsigma[i] = -rho_n1_3 * inv_rho * t18 * t41 * t46;
+        
+        if (rho[i] < 1e-12)
+        {
+            exc[i]    = 0.0;
+            vrho[i]   = 0.0;
+            vsigma[i] = 0.0;
+        }
+    }
+}
+
+// Becke 88 exchange
+// Based on Libxc implementation, manually optimized
+static void eval_GGA_exc_vxc_X_B88(
+    const int npt, const double *rho, const double *sigma, 
+    double *exc, double *vrho, double *vsigma
+)
+{
+    const double M_CBRT2 = 1.25992104989487316476721060727;
+    const double M_CBRT3 = 1.44224957030740838232163831078;
+    const double M_CBRT4 = 1.58740105196819947475170563927;
+    const double beta    = 0.0042;
+    const double gamma   = 6.0;
+    const double PI_N1_3 = 0.68278406325529568146702083315;  // cbrt(1.0 / M_PI)
+    
+    double t6   = M_CBRT4 * M_CBRT4;
+    double t7   = M_CBRT3 * PI_N1_3 * t6;
+    double t9   = M_CBRT2 * M_CBRT2;
+    double t13  = beta * M_CBRT3 * M_CBRT3;
+    double t14  = 1.0 / PI_N1_3;
+    double t16  = t13 * t14 * M_CBRT4;
+    double t22  = gamma * beta;
+    double t46  = t6 * t9;
+    double t81  = M_CBRT4 * t9;
+    double d2o9 = 2.0 / 9.0;
+    
+    #pragma omp simd
+    for (int i = 0; i < npt; i++)
+    {
+        double rho_1_3  = cbrt(rho[i]);
+        double rho_n1_3 = 1.0 / rho_1_3;
+        double rho_n2_3 = rho_n1_3 * rho_n1_3;
+        double inv_rho  = rho_n2_3 * rho_n1_3;
+        double inv_rho2 = inv_rho  * inv_rho;
+        
+        double t17 = sigma[i] * t9;
+        double t18 = t16 * t17;
+        double t21 = inv_rho2 * rho_n2_3;
+        double t23 = sqrt(sigma[i]);
+        double t24 = t22 * t23;
+        double t26 = rho_n2_3 * rho_n2_3;
+        double t29 = t23 * M_CBRT2 * t26;
+        double t30 = log(t23 * M_CBRT2 * t26 + sqrt(t29 * t29 + 1.0));
+        double t31 = M_CBRT2 * t26 * t30;
+        double t34 = 1.0 / (1.0 + t24 * t31);
+        double t35 = t21 * t34;
+        double t39 = 1.0 + d2o9 * t18 * t35;
+        double t41 = -0.25 * t7 * t9 * rho_1_3 * t39;
+        
+        double t45 = -0.1875 * rho_1_3 * rho[i] * M_CBRT3 * PI_N1_3;
+        double t49 = rho_n2_3 * inv_rho * inv_rho2;
+        double t56 = t35 * t34;
+        double t67 = t9 / sqrt(1.0 + t17 * t21);
+        double t68 = t22 * t67;
+        double t71 = -1.33333333333333 * (M_CBRT2 * rho_n1_3 * inv_rho2 * t24 * t30 + sigma[i] * t49 * t68);
+        double t76 = t18 * (-0.59259259259259 * t49 * t34 - d2o9 * t56 * t71);
+        
+        double t85 = t22 / t23;
+        double t91 = 0.5 * (t21 * t68 + t85 * t31);
+        double t97 = d2o9 * t46 * (-t18 * t56 * t91 + t13 * t14 * t35 * t81);
+        
+        exc[i]    = 0.75 * t41;
+        vrho[i]   = t41 + t45 * t46 * t76;
+        vsigma[i] = t45 * t97;
+        
+        if (rho[i] < 1e-25)
+        {
+            exc[i]    = 0.0;
+            vrho[i]   = 0.0;
+            vsigma[i] = 0.0;
+        }
     }
 }
 
@@ -299,6 +379,173 @@ static void eval_GGA_exc_vxc_C_PBE(
     }
 }
 
+// Lee, Yang & Parr correlation
+// Based on Libxc implementation, manually optimized
+static void eval_GGA_exc_vxc_C_LYP(
+    const int npt, const double *rho, const double *sigma, 
+    double *exc, double *vrho, double *vsigma
+)
+{
+    const double M_CBRT2 = 1.25992104989487316476721060727;
+    const double M_CBRT3 = 1.44224957030740838232163831078;
+    const double M_CBRT4 = 1.58740105196819947475170563927;
+    const double A       = 0.04918;
+    const double B       = 0.132;
+    const double c       = 0.2533;
+    const double d       = 0.349;
+    const double PI_N1_3 = 0.68278406325529568146702083315;  // cbrt(1.0 / M_PI)
+    
+    double t55    = B * c;
+    double t28    = M_PI * M_PI;
+    double t29    = cbrt(t28);
+    double t40    = M_CBRT3 * t29;
+    double t72    = d * d;
+    double d1o3   = 1.0 / 3.0;
+    double d5o24  = 5.0 / 24.0;
+    double d1o18  = 1.0 / 18.0;
+    double d1o54  = 1.0 / 54.0;
+    double d1o144 = 1.0 / 144.0;
+    double t83    = 0.125 - d1o144 * 18.0;
+    
+    #pragma omp simd
+    for (int i = 0; i < npt; i++)
+    {
+        double rho_1_3  = cbrt(rho[i]);
+        double rho_2_3  = rho_1_3 * rho_1_3;
+        double rho_n1_3 = 1.0 / rho_1_3;
+        double rho_n2_3 = rho_n1_3 * rho_n1_3;
+        double inv_rho  = rho_n1_3 * rho_n2_3;
+        double rho_n4_3 = rho_n1_3 * inv_rho;
+        double inv_rho2 = inv_rho  * inv_rho;
+        
+        double t11 = 1.0 / (d * rho_n1_3 + 1.0);
+        double t13 = exp(-c * rho_n1_3);
+        double t14 = B * t13;
+        double t18 = rho_n2_3 * inv_rho2;
+        double t19 = sigma[i] * t18;
+        double t21 = d * t11 + c;
+        double t22 = t21 * rho_n1_3;
+        double t24 = d1o18 * (-0.25 - 1.75 * t22);
+        double t34 = 2.5 - t22 * d1o18;
+        double t35 = sigma[i] * t34;
+        double t38 = t22 - 11.0;
+        double t39 = sigma[i] * t38;
+        double t43 = -t19 * (t24 + d5o24) - 0.3 * t40 * t40 
+                     +t18 * (0.125 * t35 + d1o144 * t39);
+        
+        double t47 = rho[i] * A;
+        double t49 = t11 * t11;
+        double t57 = t13 * t11;
+        double t68 = rho_n2_3 * inv_rho * inv_rho2;
+        double t69 = 8.0 * sigma[i] * t68;
+        double t78 = t21 * rho_n4_3 - t49 * t72 * rho_n2_3 * inv_rho;
+        double t79 = 1.75 * d1o54 * t78;
+        double t82 = sigma[i] * t78 * d1o54;
+        double t95 = d1o3 * (t24 * t69 - t35 * t68) - t19 * t79 
+                     + t18 * t82 * t83
+                     - d1o54 * t39 * t68 + 1.25 * d1o18 * t69;
+        double t97 = d * t49;
+        double t98 = rho_n4_3 * d1o3 * (-t97 + t43 * (t55 * t57 + t14 * t97))
+                     + t11 * t14 * t95;
+        double t107 = t18 * (-t24 + t34 * 0.125 + t38 * d1o144 - d5o24);
+        
+        exc[i]    = A * t11 * (t14 * t43 - 1.0);
+        vrho[i]   = t47 * t98 + exc[i];
+        vsigma[i] = B * t47 * t57 * t107;
+        
+        if (rho[i] < 1e-32)
+        {
+            exc[i]    = 0.0;
+            vrho[i]   = 0.0;
+            vsigma[i] = 0.0;
+        }
+    }
+}
+
+// Perdew 86 correlation
+// Based on Libxc implementation, manually optimized
+static void eval_GGA_exc_vxc_C_P86(
+    const int npt, const double *rho, const double *sigma, 
+    double *exc, double *vrho, double *vsigma
+)
+{
+    const double M_CBRT3 = 1.44224957030740838232163831078;
+    const double M_CBRT4 = 1.58740105196819947475170563927;
+    const double PI_N1_3 = 0.68278406325529568146702083315;  // cbrt(1.0 / M_PI)
+    
+    double t4  = M_CBRT3 * PI_N1_3;
+    double t6  = M_CBRT4 * M_CBRT4;
+    double t7  = t4 * t6;
+    double t32 = M_CBRT3 * M_CBRT3;
+    double t33 = PI_N1_3 * PI_N1_3;
+    double t34 = M_CBRT4 * t32 * t33;
+    double c1  = -0.087741666666666666667 * M_CBRT3 * PI_N1_3;
+    
+    #pragma omp simd
+    for (int i = 0; i < npt; i++)
+    {
+        double rho_1_3  = cbrt(rho[i]);
+        double rho_n1_3 = 1.0 / rho_1_3;
+        double rho_n2_3 = rho_n1_3 * rho_n1_3;
+        double inv_rho  = rho_n2_3 * rho_n1_3;
+        double inv_rho2 = inv_rho  * inv_rho;
+        
+        double t10 = t7 * rho_n1_3;
+        double t11 = t10 * 0.25;
+        int    t12 = (1.0 <= t11);
+        double t13 = sqrt(t10);
+        double t16 = 1.0 / (1.0 + 0.52645 * t13 + 0.08335 * t10);
+        double t19 = log(t11);
+        double t24 = -0.1423 * t16;
+        double t25 = 0.0311 * t19 - 0.048 + t10 * (0.0005 * t19 - 0.0029);
+        double t26 = t12 ? t24 : t25;
+        double t29 = rho_n1_3 * inv_rho2;
+        double t30 = sigma[i] * t29;
+        double t38 = t34 * rho_n2_3;
+        double t40 = 0.002568 + 0.0058165 * t10 + 0.184725e-5 * t38;
+        double t45 = 1.0 / (1.0 + 2.18075 * t10 + 0.118 * t38 + 0.01763993811759021954 * inv_rho);
+        double t46 = -t40 * t45;
+        double t48 = 0.001667 - t46;
+        double t49 = 1.0 / t48;
+        double t50 = sqrt(sigma[i]);
+        double t51 = t49 * t50;
+        double t52 = pow(rho[i], -0.1666666666666667);
+        double t54 = t52 * inv_rho;
+        double t55 = t51 * t54;
+        double t57 = exp(-0.00081290825 * t55);
+        double t58 = t57 * t48;
+        
+        double t66 = rho_n1_3 * inv_rho;
+        double t71 = t7 * t66;
+        double t73 = c1 / t13 * t6 * t66 - 0.027783333333333333333 * t71;
+        double t80 = -t16 * t24 * t73;
+        double t81 = -0.010366666666666666667 * inv_rho - t71 * (0.16666666666666666667e-3 * t19 + 0.0008);
+        double t82 = t12 ? t80 : t81;
+        double t83 = inv_rho2 * inv_rho;
+        double t87 = sigma[i] * rho_n1_3 * t58 * t83;
+        double t96 = t38 * inv_rho;
+        double t98 = -0.001938833333333333333 * t71 - 0.12315e-5 * t96;
+        double t107 = -0.72691666666666666667 * t71 - 0.078666666666666666667 * t96 - 0.017639938117590219540 * inv_rho2;
+        double t109 = t45 * (t46 * t107 + t98);
+        double t117 = 0.00081290825 * t49 * t55 * t109 + 0.94839295833333333334e-3 * inv_rho2 * t51 * t52;
+        double t119 = t30 * t57;
+        double t120 = t48 * t117 * t119;
+        double t122 = t109 * t119;
+        double t132 = 0.000406454125 * t50 * t83 / sqrt(rho[i]) * t57;
+        
+        exc[i]    = t26 + t30 * t58;
+        vrho[i]   = exc[i] + rho[i] * (t82 - 7.0/3.0 * t87 + t120 + t122);
+        vsigma[i] = rho[i] * (t29 * t57 * t48 - t132);
+        
+        if (rho[i] < 1e-25)
+        {
+            exc[i]    = 0.0;
+            vrho[i]   = 0.0;
+            vsigma[i] = 0.0;
+        }
+    }
+}
+
 // Evaluate GGA XC functional E_xc = \int G(rho(r)) dr
 void eval_GGA_exc_vxc(
     const int fid, const int npt, const double *rho, const double *sigma, 
@@ -308,7 +555,10 @@ void eval_GGA_exc_vxc(
     switch (fid)
     {
         case GGA_X_PBE:  eval_GGA_exc_vxc_X_PBE(npt, rho, sigma, exc, vrho, vsigma); break;
+        case GGA_X_B88:  eval_GGA_exc_vxc_X_B88(npt, rho, sigma, exc, vrho, vsigma); break;
         case GGA_C_PBE:  eval_GGA_exc_vxc_C_PBE(npt, rho, sigma, exc, vrho, vsigma); break;
+        case GGA_C_LYP:  eval_GGA_exc_vxc_C_LYP(npt, rho, sigma, exc, vrho, vsigma); break;
+        case GGA_C_P86:  eval_GGA_exc_vxc_C_P86(npt, rho, sigma, exc, vrho, vsigma); break;
     }
 }
 

@@ -19,13 +19,13 @@ YATDFT can construct:
 * CDIIS Pulay mixing for Fock matrix
 * Density matrix (from Fock matrix or SAD initial guess)
 * DFT exchange-correlation matrix
-  * Built-in LDA XC functionals: Slater exchange, Slater Xalpha correlation (alpha = 0.7), PZ81 correlation , PW92 correlation  
-  * Built-in GGA XC functionals: PBE exchange & correlation
-  * GGA XC functionals from Libxc: PW91 exchange & correlation, B88 exchange, G96 exchange, PW86 exchange, LYP correlation, P86 correlation
+  * Built-in LDA XC functionals: Slater exchange, Slater Xalpha correlation (alpha = 0.7 - 2/3), PZ81 correlation , PW92 correlation  
+  * Built-in GGA XC functionals: PBE exchange & correlation, B88 exchange, LYP correlation
+  * GGA XC functionals from Libxc: PW91 exchange & correlation, G96 exchange, PW86 exchange, P86 correlation
 
 ## Compiling and Using YATDFT 
 
-We use Intel Parallel Studio to compile Simint, Libxc, and YATDFT here. Simint and Libxc also support GCC, but we have not tested yet. 
+We use Intel Parallel Studio to compile Simint, Libxc, and YATDFT here. Simint and Libxc can also be compiled using GCC, but we have not tested yet. 
 
 ### 1. Compiling Simint
 
