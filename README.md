@@ -5,23 +5,23 @@ A tiny library for constructing matrices used in Hartree-Fock (HF) and Kohn-Sham
 YATDFT requires:
 
 * [Simint](https://github.com/simint-chem/simint-generator) for electron repulsion integrals (ERI)
-* [Libxc](https://gitlab.com/libxc/libxc) for some XC GGA functionals (YATDFT has some built-in implementations)
 * OpenMP and C99 supported C compiler
 * Intel MKL (could be replace by other BLAS+LAPACK implementations, have not tested yet)
+* Optional: [Libxc](https://gitlab.com/libxc/libxc) for some XC GGA functionals (YATDFT has some built-in implementations)
 
 YATDFT can construct:
 
-* Core Hamiltonian matrix
-* Overlap matrix
-* Basis transformation matrix
-* Coulomb matrix
-* HF exchange matrix
-* CDIIS Pulay mixing for Fock matrix
-* Density matrix (from Fock matrix or SAD initial guess)
-* DFT exchange-correlation matrix
+* Core Hamiltonian matrix (Hcore)
+* Overlap matrix (S)
+* Basis transformation matrix (X)
+* Coulomb matrix (J)
+* HF exchange matrix (K)
+* DFT exchange-correlation matrix (XC)
   * Built-in LDA XC functionals: Slater exchange, Slater Xalpha correlation (alpha = 0.7 - 2/3), PZ81 correlation , PW92 correlation  
   * Built-in GGA XC functionals: PBE exchange & correlation, B88 exchange, LYP correlation
   * GGA XC functionals from Libxc: PW91 exchange & correlation, G96 exchange, PW86 exchange, P86 correlation
+* CDIIS Pulay mixing for Fock matrix
+* Density matrix (D), from Fock matrix or SAD initial guess
 
 ## Compiling and Using YATDFT 
 
@@ -61,7 +61,7 @@ CC=icc CXX=icpc cmake ../ -DSIMINT_VECTOR=micavx512 -DSIMINT_C_FLAGS="-O3;-g" -D
 make -j16 install
 ```
 
-### 2. Compiling Libxc
+### 2. Optional: Compiling Libxc
 
 We compile Libxc into a shared library here since its static library is too large...
 

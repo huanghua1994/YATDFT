@@ -6,7 +6,10 @@
 #include <omp.h>
 
 #include <mkl.h>
+
+#ifdef USE_LIBXC
 #include <xc.h>
+#endif
 
 #include "utils.h"
 #include "TinyDFT_typedef.h"
@@ -132,10 +135,8 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     TinyDFT->mem_size += (double) (DBL_SIZE * nintp_blk * 8);
     TinyDFT->mem_size += (double) (workbuf_msize);
     
-    TinyDFT->xf_id = LDA_X;
-    TinyDFT->cf_id = LDA_C_XA;
-    TinyDFT->xf_family = FAMILY_LDA;
-    TinyDFT->cf_family = FAMILY_LDA;
+    TinyDFT->xf_id = -1;
+    TinyDFT->cf_id = -1;
     
     if (strcmp(xf_str, "LDA_X")      == 0) { TinyDFT->xf_id = LDA_X;      TinyDFT->xf_family = FAMILY_LDA; }
     if (strcmp(cf_str, "LDA_C_XA")   == 0) { TinyDFT->cf_id = LDA_C_XA;   TinyDFT->cf_family = FAMILY_LDA; }
@@ -153,6 +154,19 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     if (strcmp(cf_str, "GGA_C_P86")  == 0) { TinyDFT->cf_id = GGA_C_P86;  TinyDFT->cf_family = FAMILY_GGA; }
     if (strcmp(cf_str, "GGA_C_PW91") == 0) { TinyDFT->cf_id = GGA_C_PW91; TinyDFT->cf_family = FAMILY_GGA; }
     
+    if (TinyDFT->xf_id == -1)
+    {
+        printf("WARNING: exchange %s not supported yet, fall back to LDA_X\n", xf_str);
+        TinyDFT->xf_id     = LDA_X;
+        TinyDFT->xf_family = FAMILY_LDA;
+    }
+    if (TinyDFT->cf_id == -1)
+    {
+        printf("WARNING: correlation %s not supported yet, fall back to LDA_C_PW\n", cf_str);
+        TinyDFT->cf_id     = LDA_C_PW;
+        TinyDFT->cf_family = FAMILY_LDA;
+    }
+    
     TinyDFT->xf_impl = 0;
     TinyDFT->cf_impl = 0;
     for (int i = 0; i < num_impl_xc_func; i++)
@@ -160,12 +174,13 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
         if (TinyDFT->xf_id == impl_xc_func[i]) TinyDFT->xf_impl = 1;
         if (TinyDFT->cf_id == impl_xc_func[i]) TinyDFT->cf_impl = 1;
     }
+    #ifdef USE_LIBXC
     if (TinyDFT->xf_impl == 0)
     {
         int ret = xc_func_init(&TinyDFT->libxc_xf, TinyDFT->xf_id, XC_UNPOLARIZED);
         if (ret != 0) 
         {
-            printf("FATAL: initialize exchange functional %d failed!\n", TinyDFT->xf_id);
+            printf("FATAL: initialize exchange %d failed!\n", TinyDFT->xf_id);
             assert(ret == 0);
         }
         TinyDFT->xf_family = TinyDFT->libxc_xf.info->family;
@@ -175,11 +190,28 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
         int ret = xc_func_init(&TinyDFT->libxc_cf, TinyDFT->cf_id, XC_UNPOLARIZED);
         if (ret != 0) 
         {
-            printf("FATAL: initialize exchange functional %d failed!\n", TinyDFT->cf_id);
+            printf("FATAL: initialize correlation %d failed!\n", TinyDFT->cf_id);
             assert(ret == 0);
         }
         TinyDFT->cf_family = TinyDFT->libxc_cf.info->family;
     }
+    #else
+    if (TinyDFT->xf_impl == 0) 
+    {
+        printf("WARNING: exchange %s not implemented in YATDFT, you need Libxc! Fall back to LDA_X.\n", xf_str);
+        TinyDFT->xf_id     = LDA_X;
+        TinyDFT->xf_family = FAMILY_LDA;
+        TinyDFT->xf_impl   = 1;
+    }
+    if (TinyDFT->cf_impl == 0) 
+    {
+        printf("WARNING: correlation %s not implemented in YATDFT, you need Libxc! Fall back to LDA_C_PW.\n", cf_str);
+        TinyDFT->cf_id     = LDA_C_PW;
+        TinyDFT->cf_family = FAMILY_LDA;
+        TinyDFT->cf_impl   = 1;
+    }
+    #endif
+    
     if (TinyDFT->xf_family != TinyDFT->cf_family)
     {
         printf("FATAL: exchange and correlation functionals are not the same family!\n");
@@ -382,7 +414,10 @@ static void TinyDFT_eval_electron_density(
 static double TinyDFT_eval_LDA_XC_func(
     const int xf_id, const int cf_id, const int xf_impl, const int cf_impl,
     const int npt, const double *rho, const double *ipw, double *workbuf, 
-    xc_func_type *p_libxc_xf, xc_func_type *p_libxc_cf, double *exc, double *vxc
+    #ifdef USE_LIBXC
+    xc_func_type *p_libxc_xf, xc_func_type *p_libxc_cf, 
+    #endif
+    double *exc, double *vxc
 )
 {
     double *ex = workbuf + npt * 0;
@@ -394,14 +429,24 @@ static double TinyDFT_eval_LDA_XC_func(
     {
         eval_LDA_exc_vxc(xf_id, npt, rho, ex, vx);
     } else {
+        #ifdef USE_LIBXC
         xc_lda_exc_vxc(p_libxc_xf, npt, rho, ex, vx);
+        #else
+        printf("Jesus, you triggered a bug at %s:%d!\n", __FILE__, __LINE__);
+        assert(xf_impl == 1);
+        #endif
     }
     
     if (cf_impl == 1)
     {
         eval_LDA_exc_vxc(cf_id, npt, rho, ec, vc);
     } else {
+        #ifdef USE_LIBXC
         xc_lda_exc_vxc(p_libxc_cf, npt, rho, ec, vc);
+        #else
+        printf("Jesus, you triggered a bug at %s:%d!\n", __FILE__, __LINE__);
+        assert(cf_impl == 1);
+        #endif
     }
     
     double E_xc = 0.0;
@@ -477,8 +522,10 @@ static void TinyDFT_build_XC_LDA_partial(
 //   <return> : XC energy, = \int G(rho(r)) dr
 static double TinyDFT_eval_GGA_XC_func(
     const int xf_id, const int cf_id, const int xf_impl, const int cf_impl,
-    const int npt, double *rho, const double *sigma, const double *ipw, 
-    double *workbuf, xc_func_type *p_libxc_xf, xc_func_type *p_libxc_cf, 
+    const int npt, double *rho, const double *sigma, const double *ipw, double *workbuf, 
+    #ifdef USE_LIBXC
+    xc_func_type *p_libxc_xf, xc_func_type *p_libxc_cf, 
+    #endif
     double *exc, double *vrho, double *vsigma
 )
 {
@@ -493,14 +540,24 @@ static double TinyDFT_eval_GGA_XC_func(
     {
         eval_GGA_exc_vxc(xf_id, npt, rho, sigma, ex, vrhox, vsigmax);
     } else {
+        #ifdef USE_LIBXC
         xc_gga_exc_vxc(p_libxc_xf, npt, rho, sigma, ex, vrhox, vsigmax);
+        #else
+        printf("Jesus, you triggered a bug at %s:%d!\n", __FILE__, __LINE__);
+        assert(xf_impl == 1);
+        #endif
     }
     
     if (cf_impl == 1)
     {
         eval_GGA_exc_vxc(cf_id, npt, rho, sigma, ec, vrhoc, vsigmac);
     } else {
+        #ifdef USE_LIBXC
         xc_gga_exc_vxc(p_libxc_cf, npt, rho, sigma, ec, vrhoc, vsigmac);
+        #else
+        printf("Jesus, you triggered a bug at %s:%d!\n", __FILE__, __LINE__);
+        assert(cf_impl == 1);
+        #endif
     }
     
     double E_xc = 0.0;
@@ -647,8 +704,10 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
     double *ipw       = TinyDFT->int_grid + 3 * nintp;
     double *workbuf   = TinyDFT->XC_workbuf;
     
+    #ifdef USE_LIBXC
     xc_func_type *p_libxc_xf = &TinyDFT->libxc_xf;
     xc_func_type *p_libxc_cf = &TinyDFT->libxc_cf;
+    #endif
 
     double E_xc = 0.0;
     for (int sintp = 0; sintp < nintp; sintp += nintp_blk)
@@ -676,7 +735,10 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
             E_xc += TinyDFT_eval_LDA_XC_func(
                 xf_id, cf_id, xf_impl, cf_impl, 
                 npt, rho, curr_ipw, workbuf, 
-                p_libxc_xf, p_libxc_cf, exc, vxc
+                #ifdef USE_LIBXC
+                p_libxc_xf, p_libxc_cf, 
+                #endif
+                exc, vxc
             );
             
             TinyDFT_build_XC_LDA_partial(
@@ -689,8 +751,10 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
         {
             E_xc += TinyDFT_eval_GGA_XC_func(
                 xf_id, cf_id, xf_impl, cf_impl, 
-                npt, rho, sigma, curr_ipw, 
-                workbuf, p_libxc_xf, p_libxc_cf, 
+                npt, rho, sigma, curr_ipw, workbuf, 
+                #ifdef USE_LIBXC
+                p_libxc_xf, p_libxc_cf, 
+                #endif
                 exc, vrho, vsigma
             );
             

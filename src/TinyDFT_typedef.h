@@ -1,7 +1,10 @@
 #ifndef _YATDFT_TYPEDEF_H_
 #define _YATDFT_TYPEDEF_H_
 
+#ifdef USE_LIBXC
 #include <xc.h>
+#endif
+
 #include "libCMS.h"
 
 // TinyDFT structure
@@ -74,8 +77,10 @@ struct TinyDFT_struct
     double *vxc;            // Size nintp_blk, = \frac{\part G}{\part rho}
     double *vsigma;         // Size nintp_blk, = \frac{\part G}{\part sigma}
     double *XC_workbuf;     // Size nbf*nintp_blk, XC calculation work buffer
+    #ifdef USE_LIBXC
     xc_func_type libxc_xf;  // Libxc exchange functional handle
     xc_func_type libxc_cf;  // Libxc correlation functional handle
+    #endif
 
     // Temporary matrices used in multiple modules
     double *tmp_mat;        // Size nbf-by-nbf, used in: build_Dmat, CDIIS

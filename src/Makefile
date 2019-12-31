@@ -2,15 +2,22 @@ CC  = icc
 AR  = xiar rcs
 LIB = libYATDFT.a
 
+USE_LIBXC = 1
+
 BLAS_LIB       = -mkl=parallel
 SIMINT_INCDIR  = /home/mkurisu/Workspace/simint/build-avx/install/include
 LIBXC_INCDIR   = /home/mkurisu/Workspace/libxc/install/include
 
 DEFS    = -D__ALIGNLEN__=64
-INCS    = -I./ -I$(SIMINT_INCDIR) -I$(LIBXC_INCDIR)
+INCS    = -I./ -I$(SIMINT_INCDIR)
 
 CFLAGS  = -Wall -g -O3 -qopenmp -std=gnu99 -xHost $(DEFS) $(BLAS_LIB)
 LDFLAGS = -lpthread -qopenmp $(BLAS_LIB)
+
+ifeq ($(USE_LIBXC), 1)
+INCS   += -I$(LIBXC_INCDIR)
+CFLAGS += -DUSE_LIBXC
+endif
 
 OBJS =  CMS_basis.o CMS_simint.o utils.o ket_sp_list.o TinyDFT_typedef.o \
 		acc_JKmat.o build_HF_mat.o gen_Lebedev_grid.o gen_int_grid.o \

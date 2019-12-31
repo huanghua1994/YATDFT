@@ -9,7 +9,10 @@
 #include <omp.h>
 
 #include <mkl.h>
+
+#ifdef USE_LIBXC
 #include <xc.h>
+#endif
 
 #include "libCMS.h"
 #include "utils.h"
@@ -274,8 +277,10 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     ALIGN64B_FREE(TinyDFT->vxc);
     ALIGN64B_FREE(TinyDFT->vsigma);
     ALIGN64B_FREE(TinyDFT->XC_workbuf);
+    #ifdef USE_LIBXC
     if (TinyDFT->xf_impl == 0) xc_func_end(&TinyDFT->libxc_xf);
     if (TinyDFT->cf_impl == 0) xc_func_end(&TinyDFT->libxc_cf);
+    #endif
     
     // Free matrices used in multiple modules
     ALIGN64B_FREE(TinyDFT->tmp_mat);
