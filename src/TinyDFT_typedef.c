@@ -81,7 +81,7 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     int num_valid_sp = TinyDFT->num_valid_sp;
     
     // Allocate memory for ERI info arrays for direct approach
-    CMS_createSimint(TinyDFT->basis, &(TinyDFT->simint), nthread, TinyDFT->prim_scrtol);
+    CMS_Simint_init(TinyDFT->basis, &(TinyDFT->simint), nthread, TinyDFT->prim_scrtol);
     TinyDFT->valid_sp_lid   = (int*)    ALIGN64B_MALLOC(INT_SIZE * num_valid_sp);
     TinyDFT->valid_sp_rid   = (int*)    ALIGN64B_MALLOC(INT_SIZE * num_valid_sp);
     TinyDFT->shell_bf_sind  = (int*)    ALIGN64B_MALLOC(INT_SIZE * (nshell + 1));
@@ -113,7 +113,6 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->bf_pair_diag     = NULL;
     TinyDFT->bf_mask_displs   = NULL;
     TinyDFT->df_sp_scrval     = NULL;
-    TinyDFT->df_simint        = NULL;
     TinyDFT->df_basis         = NULL;
     
     // Flattened Gaussian basis function and atom info used only 
@@ -377,7 +376,7 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
 
     // Free BasisSet_t and Simint_t object, print Simint_t object stat info
     CMS_destroyBasisSet(TinyDFT->basis);
-    CMS_destroySimint(TinyDFT->simint, 1);
+    CMS_Simint_destroy(TinyDFT->simint, 1);
     
     free(TinyDFT);
     *_TinyDFT = NULL;
@@ -444,7 +443,7 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
                 
                 int nints;
                 double *integrals;
-                CMS_computeShellQuartet_Simint(simint, tid, M, N, M, N, &integrals, &nints);
+                CMS_Simint_calc_shellquartet(simint, tid, M, N, M, N, &integrals, &nints);
                 
                 double maxval = 0.0;
                 if (nints > 0)
@@ -469,7 +468,7 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
     }
     
     // Reset Simint statistic info
-    CMS_Simint_resetStatisInfo(simint);
+    CMS_Simint_reset_stat_info(simint);
     
     // Generate unique shell pairs that survive Schwarz screening
     // eta is the threshold for screening a shell pair
@@ -489,8 +488,8 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
                 if (N > M) continue;
                 
                 // We want AM(M) >= AM(N) to avoid HRR
-                int MN_id = CMS_Simint_getShellpairAMIndex(simint, M, N);
-                int NM_id = CMS_Simint_getShellpairAMIndex(simint, N, M);
+                int MN_id = CMS_Simint_get_sp_AM_idx(simint, M, N);
+                int NM_id = CMS_Simint_get_sp_AM_idx(simint, N, M);
                 if (MN_id > NM_id)
                 {
                     valid_sp_lid[num_valid_sp] = M;

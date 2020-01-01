@@ -35,7 +35,7 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
         int tid = omp_get_thread_num();
         for (int N = 0; N < nshell; N++)
         {
-            int nints, offset, nrows, ncols;
+            int nint, offset, nrows, ncols;
             double *integrals, *S_ptr, *Hcore_ptr;
             
             offset    = shell_bf_sind[M] * nbf + shell_bf_sind[N];
@@ -45,12 +45,12 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
             ncols     = shell_bf_num[N];
             
             // Compute the contribution of current shell pair to core Hamiltonian matrix
-            CMS_computePairOvl_Simint(basis, simint, tid, M, N, &integrals, &nints);
-            if (nints > 0) copy_dbl_mat_blk(S_ptr, nbf, integrals, ncols, nrows, ncols);
+            CMS_Simint_calc_pair_ovlp(simint, tid, M, N, &integrals, &nint);
+            if (nint > 0) copy_dbl_mat_blk(S_ptr, nbf, integrals, ncols, nrows, ncols);
             
             // Compute the contribution of current shell pair to overlap matrix
-            CMS_computePairCoreH_Simint(basis, simint, tid, M, N, &integrals, &nints);
-            if (nints > 0) copy_dbl_mat_blk(Hcore_ptr, nbf, integrals, ncols, nrows, ncols);
+            CMS_Simint_calc_pair_Hcore(basis, simint, tid, M, N, &integrals, &nint);
+            if (nint > 0) copy_dbl_mat_blk(Hcore_ptr, nbf, integrals, ncols, nrows, ncols);
         }
     }
     
@@ -244,7 +244,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
         create_ThreadKetShellpairLists(&thread_ksp_lists);
         // Simint multi_shellpair buffer for batched ERI computation
         void *thread_multi_shellpair;
-        CMS_Simint_createThreadMultishellpair(&thread_multi_shellpair);
+        CMS_Simint_create_multi_sp(&thread_multi_shellpair);
         
         double *thread_FM_strip_buf = FM_strip_buf + tid * nbf * max_dim;
         double *thread_FN_strip_buf = FN_strip_buf + tid * nbf * max_dim;
@@ -290,7 +290,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
                 if (fabs(scrval1 * scrval2) <= scrtol2) continue;
                 
                 // Push ket-side shell pair to corresponding list
-                int ket_id = CMS_Simint_getShellpairAMIndex(simint, P, Q);
+                int ket_id = CMS_Simint_get_sp_AM_idx(simint, P, Q);
                 KetShellpairList_t target_shellpair_list = &thread_ksp_lists->ket_shellpair_lists[ket_id];
                 add_shellpair_to_KetShellPairList(target_shellpair_list, P, Q);
                 
@@ -301,7 +301,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
                     int thread_nints;
                     
                     // Compute batched ERIs
-                    CMS_computeShellQuartetBatch_Simint(
+                    CMS_Simint_calc_shellquartet_batch(
                         simint, tid, M, N,
                         target_shellpair_list->P_list,
                         target_shellpair_list->Q_list,
@@ -325,7 +325,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
                             build_J, build_K
                         );
                         double et = get_wtime_sec();
-                        if (tid == 0) CMS_Simint_addupdateFtimer(simint, et - st);
+                        if (tid == 0) CMS_Simint_add_accF_timer(simint, et - st);
                     }
                     
                     // Reset the computed ket-side shell pair list
@@ -344,7 +344,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
                     int thread_nints;
                     
                     // Compute batched ERIs
-                    CMS_computeShellQuartetBatch_Simint(
+                    CMS_Simint_calc_shellquartet_batch(
                         simint, tid, M, N,
                         target_shellpair_list->P_list,
                         target_shellpair_list->Q_list,
@@ -368,7 +368,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
                             build_J, build_K
                         );
                         double et = get_wtime_sec();
-                        if (tid == 0) CMS_Simint_addupdateFtimer(simint, et - st);
+                        if (tid == 0) CMS_Simint_add_accF_timer(simint, et - st);
                     }
                     
                     // Reset the computed ket-side shell pair list
@@ -409,7 +409,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
         );
         TinyDFT_finalize_JKmat(nbf, J_mat, K_mat, build_J, build_K);
         
-        CMS_Simint_freeThreadMultishellpair(&thread_multi_shellpair);
+        CMS_Simint_free_multi_sp(&thread_multi_shellpair);
         free_ThreadKetShellpairLists(thread_ksp_lists);
     }  // End of "#pragma omp parallel"
 }

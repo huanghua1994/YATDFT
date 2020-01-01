@@ -20,7 +20,7 @@ CFLAGS += -DUSE_LIBXC
 endif
 
 OBJS =  CMS_basis.o CMS_simint.o utils.o ket_sp_list.o TinyDFT_typedef.o \
-		acc_JKmat.o build_HF_mat.o gen_Lebedev_grid.o gen_int_grid.o     \
+        acc_JKmat.o build_HF_mat.o gen_Lebedev_grid.o gen_int_grid.o     \
         eval_XC_func.o build_XCmat.o CDIIS.o setup_DF.o build_JKmat_DF.o \
         build_Dmat.o 
 

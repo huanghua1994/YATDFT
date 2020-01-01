@@ -15,7 +15,7 @@ static void TinyDFT_load_DF_basis(TinyDFT_t TinyDFT, char *df_bas_fname, char *x
     int nthread = TinyDFT->nthread;
     CMS_createBasisSet(&(TinyDFT->df_basis));
     CMS_loadChemicalSystem(TinyDFT->df_basis, df_bas_fname, xyz_fname);
-    CMS_createSimint_DF(TinyDFT->basis, TinyDFT->df_basis, &(TinyDFT->df_simint), nthread);
+    CMS_Simint_setup_DF(TinyDFT->simint, TinyDFT->df_basis);
     TinyDFT->df_bas_name = basename(df_bas_fname);
     TinyDFT->df_nbf      = CMS_getNumFuncs (TinyDFT->df_basis);
     TinyDFT->df_nshell   = CMS_getNumShells(TinyDFT->df_basis);
@@ -151,7 +151,7 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
     double max_df_scrval = 0;
     for (int i = 0; i < TinyDFT->df_nshell; i++)
     {
-        double df_scrval = CMS_Simint_getDFShellpairScreenVal(TinyDFT->df_simint, i);
+        double df_scrval = CMS_Simint_get_DF_sp_scrval(TinyDFT->simint, i);
         TinyDFT->df_sp_scrval[i] = df_scrval;
         if (df_scrval > max_df_scrval) max_df_scrval = df_scrval;
     }
@@ -199,7 +199,7 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
     
     printf("TinyDFT memory allocation and initialization over, elapsed time = %.3lf (s)\n", ut);
     printf("TinyDFT regular + density fitting memory usage = %.2lf MB \n", TinyDFT->mem_size / 1048576.0);
-    printf("#### Sparsity of basis function pairs = %lf, %lf\n", sp_sparsity, bf_pair_sparsity);
+    printf("#### Sparsity of shell / bf pairs = %lf, %lf\n", sp_sparsity, bf_pair_sparsity);
 }
 
 static void copy_3center_integral_results(
@@ -244,19 +244,19 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
     int    df_nbf            = TinyDFT->df_nbf;
     int    nshell            = TinyDFT->nshell;
     int    num_valid_sp      = TinyDFT->num_valid_sp;
-    int    df_max_am         = TinyDFT->df_simint->df_max_am;
+    int    df_max_am         = TinyDFT->simint->df_max_am;
     int    *shell_bf_sind    = TinyDFT->shell_bf_sind;
     int    *bf_pair_mask     = TinyDFT->bf_pair_mask;
     int    *valid_sp_lid     = TinyDFT->valid_sp_lid;
     int    *valid_sp_rid     = TinyDFT->valid_sp_rid;
     int    *df_shell_bf_sind = TinyDFT->df_shell_bf_sind;
-    int    *df_am_shell_spos = TinyDFT->df_simint->df_am_shell_spos;
-    int    *df_am_shell_id   = TinyDFT->df_simint->df_am_shell_id;
+    int    *df_am_shell_spos = TinyDFT->simint->df_am_shell_spos;
+    int    *df_am_shell_id   = TinyDFT->simint->df_am_shell_id;
     double scrtol2           = TinyDFT->shell_scrtol2;
     double *pqA              = TinyDFT->pqA;
     double *sp_scrval        = TinyDFT->sp_scrval;
     double *df_sp_scrval     = TinyDFT->df_sp_scrval;
-    Simint_t df_simint       = TinyDFT->df_simint;
+    Simint_t simint          = TinyDFT->simint;
     
     int *P_lists = (int*) malloc(sizeof(int) * _Simint_NSHELL_SIMD * nthread);
     assert(P_lists != NULL);
@@ -268,7 +268,7 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
         int *thread_P_list = P_lists + tid * _Simint_NSHELL_SIMD;
         double *thread_ERIs;
         void *multi_sp;
-        CMS_Simint_createThreadMultishellpair(&multi_sp);
+        CMS_Simint_create_multi_sp(&multi_sp);
         
         #pragma omp for schedule(dynamic)
         for (int iMN = 0; iMN < num_valid_sp; iMN++)
@@ -299,8 +299,8 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
                     
                     if (npair == _Simint_NSHELL_SIMD)
                     {
-                        CMS_Simint_computeDFShellQuartetBatch(
-                            df_simint, tid, M, N, thread_P_list, npair, 
+                        CMS_Simint_calc_DF_shellquartet_batch(
+                            simint, tid, M, N, thread_P_list, npair, 
                             &thread_ERIs, &nint, &multi_sp
                         );
                         if (nint > 0)
@@ -317,8 +317,8 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
                 
                 if (npair > 0)
                 {
-                    CMS_Simint_computeDFShellQuartetBatch(
-                        df_simint, tid, M, N, thread_P_list, npair, 
+                    CMS_Simint_calc_DF_shellquartet_batch(
+                        simint, tid, M, N, thread_P_list, npair, 
                         &thread_ERIs, &nint, &multi_sp
                     );
                     if (nint > 0)
@@ -334,7 +334,7 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
             }  // for (int iAM = 0; iAM <= simint->df_max_am; iAM++)
         }  // for (int iMN = 0; iMN < TinyDFT->num_valid_sp; iMN++)
         
-        CMS_Simint_freeThreadMultishellpair(&multi_sp);
+        CMS_Simint_free_multi_sp(&multi_sp);
     }  // #pragma omp parallel 
     
     free(P_lists);
@@ -349,7 +349,7 @@ static void TinyDFT_calc_DF_2center_int(TinyDFT_t TinyDFT)
     double scrtol2           = TinyDFT->shell_scrtol2;
     double *Jpq              = TinyDFT->Jpq;
     double *df_sp_scrval     = TinyDFT->df_sp_scrval;
-    Simint_t simint          = TinyDFT->df_simint;
+    Simint_t simint          = TinyDFT->simint;
     
     #pragma omp parallel
     {
@@ -367,7 +367,7 @@ static void TinyDFT_calc_DF_2center_int(TinyDFT_t TinyDFT)
                 double scrval1 = df_sp_scrval[N];
                 if (scrval0 * scrval1 < scrtol2) continue;
 
-                CMS_Simint_computeDFShellPair(simint, tid, M, N, &ERIs, &nint);
+                CMS_Simint_calc_DF_shellpair(simint, tid, M, N, &ERIs, &nint);
                 if (nint <= 0) continue;
                 
                 int startM = df_shell_bf_sind[M];
@@ -484,4 +484,6 @@ void TinyDFT_setup_DF(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname)
     TinyDFT_prepare_DF_sparsity(TinyDFT);
  
     TinyDFT_build_DF_tensor(TinyDFT);
+    
+    CMS_Simint_free_DF_shellpairs(TinyDFT->simint);
 }

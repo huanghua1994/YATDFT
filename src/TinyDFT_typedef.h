@@ -52,7 +52,6 @@ struct TinyDFT_struct
     int    *bf_mask_displs;     // How many BF pairs in (i, :) survive screening and their storing order
     double max_df_scrval;
     double *df_sp_scrval;       // Square of screening values of each shell pair in DF
-    Simint_t   df_simint;       // Simint object for DF ERI, handled by libCMS
     BasisSet_t df_basis;        // Basis set object for storing DF info, handled by libCMS 
     
     // Flattened Gaussian basis function and atom info used only in XC calculation
