@@ -1,6 +1,8 @@
 #ifndef __BUILD_XCMAT_H__
 #define __BUILD_XCMAT_H__
 
+#include "TinyDFT_typedef.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

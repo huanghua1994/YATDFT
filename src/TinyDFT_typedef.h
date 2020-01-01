@@ -1,9 +1,11 @@
-#ifndef _YATDFT_TYPEDEF_H_
-#define _YATDFT_TYPEDEF_H_
+#ifndef __TINYDFT_TYPEDEF_H__
+#define __TINYDFT_TYPEDEF_H__
 
 #ifdef USE_LIBXC
 #include <xc.h>
 #endif
+
+#include <mkl.h>
 
 #include "libCMS.h"
 
@@ -12,28 +14,46 @@ struct TinyDFT_struct
 {
     int    nthread;         // Number of threads
     
-    // Molecular system and ERI info
+    // Molecular system and ERI info for direct approach
     char   *bas_name;       // Basis set file name
     char   *mol_name;       // Molecular file name
     int    natom;           // Number of atoms
     int    nshell;          // Number of shells
-    int    nbf;             // Number of basis functions
+    int    nbf;             // Number of basis functions (BFs)
     int    n_occ;           // Number of occupied orbits
     int    charge;          // Charge of molecule
     int    electron;        // Number of electrons
     int    num_total_sp;    // Number of total shell pairs (== nshell * nshell)
-    int    num_valid_sp;    // Number of unique screened shell pairs
+    int    num_valid_sp;    // Number of screened unique shell pairs (SUSPs)
     int    mat_size;        // Size of matrices  (== nbf * nbf)
     int    max_dim;         // Maximum value of dim{M, N, P, Q}
-    int    *valid_sp_lid;   // Size num_valid_sp, left shell id of all screened unique shell pairs
-    int    *valid_sp_rid;   // Size num_valid_sp, right shell id of all screened unique shell pairs
-    int    *shell_bf_sind;  // Size nshell+1, index of the first basis function of each shell
+    int    *valid_sp_lid;   // Size num_valid_sp, left shell id of all SUSPs
+    int    *valid_sp_rid;   // Size num_valid_sp, right shell id of all SUSPs
+    int    *shell_bf_sind;  // Size nshell+1, index of the first BF of each shell
     int    *shell_bf_num;   // Size nshell, Number of basis function in each shell
-    double prim_scrtol;     // Primitive screening 
+    double prim_scrtol;     // Primitive screening tolerance
     double shell_scrtol2;   // Square of the shell screening tolerance
     double *sp_scrval;      // Size num_total_sp, square of screening values of each shell pair
+    double *bf_pair_scrval; // Screening values of each BF pair
     Simint_t   simint;      // Simint object for ERI, handled by libCMS
     BasisSet_t basis;       // Basis set object for storing chemical system info, handled by libCMS
+    
+    // Molecular system and ERI info for density fitting (DF)
+    char   *df_bas_name;        // DF asis set file name
+    int    df_nshell;           // Number of shells for DF
+    int    df_nbf;              // Number of BFs for DF
+    int    df_nbf_16;           //
+    int    num_bf_pair_scr;     // Total number of BF pairs that survive screening
+    int    *df_shell_bf_sind;   // Index of the first BF of each shell in DF
+    int    *df_shell_bf_num;    // Number of BF in each shell in DF
+    int    *bf_pair_mask;       // If a BF pair survives the Schwarz screening
+    int    *bf_pair_j;          // j of BF pair (i, j) that survives screening 
+    int    *bf_pair_diag;       // Index of BF pair (i, i) in all BF pairs 
+    int    *bf_mask_displs;     // How many BF pairs in (i, :) survive screening and their storing order
+    double max_df_scrval;
+    double *df_sp_scrval;       // Square of screening values of each shell pair in DF
+    Simint_t   df_simint;       // Simint object for DF ERI, handled by libCMS
+    BasisSet_t df_basis;        // Basis set object for storing DF info, handled by libCMS 
     
     // Flattened Gaussian basis function and atom info used only in XC calculation
     int    max_nprim;       // Maximum number of primitive functions in all shells
@@ -111,6 +131,29 @@ struct TinyDFT_struct
     double *F_mat;          // Fock matrix (from Hcore, J, K/XC)
     double *D_mat;          // Density matrix
     double *Cocc_mat;       // Factor of density matrix
+
+    // Tensors and matrices used only in build_JKDF
+    int    mat_K_BS;
+    int    mat_K_ntile;
+    int    *mat_K_group_size;
+    int    *mat_K_m;
+    int    *mat_K_n;
+    int    *mat_K_k;
+    int    *mat_K_lda;
+    int    *mat_K_ldb;
+    int    *mat_K_ldc;
+    double *mat_K_alpha;
+    double *mat_K_beta;
+    double *pqA;
+    double *Jpq;
+    double *df_tensor;
+    double *temp_J;
+    double *temp_K;
+    double **mat_K_a;
+    double **mat_K_b; 
+    double **mat_K_c;
+    CBLAS_TRANSPOSE *mat_K_transa;
+    CBLAS_TRANSPOSE *mat_K_transb;
 
     // Calculated energies
     double E_nuc_rep;       // Nuclear repulsion energy

@@ -3,6 +3,8 @@
 
 #include "libCMS.h"
 
+#include "utils.h"
+
 #include "TinyDFT_typedef.h"
 
 #include "build_Dmat.h"
@@ -13,7 +15,9 @@
 
 #include "CDIIS.h"
 
-#include "utils.h"
+#include "setup_DF.h"
+
+#include "build_JKmat_DF.h"
 
 #endif
 

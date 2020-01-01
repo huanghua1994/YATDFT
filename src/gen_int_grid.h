@@ -1,5 +1,5 @@
-#ifndef __YATDFT_GEN_INT_GRID_H__
-#define __YATDFT_GEN_INT_GRID_H__
+#ifndef __GEN_INT_GRID_H__
+#define __GEN_INT_GRID_H__
 
 #ifdef __cplusplus
 extern "C" {

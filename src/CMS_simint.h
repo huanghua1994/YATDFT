@@ -5,19 +5,27 @@
 
 struct Simint
 {
-    int nthreads;
-    int max_am;
-    int workmem_per_thread;
-    int outmem_per_thread;
+    int    nthreads;
+    int    max_am;
+    int    workmem_per_thread;
+    int    outmem_per_thread;
     double shell_memsize;
     double shellpair_memsize;
     double *workbuf;
     double *outbuf;
 
-    int nshells;
+    int    nshells;
     struct simint_shell *shells;
     struct simint_multi_shellpair *shellpairs;
-
+    
+    int    df_nshells;
+    int    df_max_am;
+    int    *df_am_shell_id;
+	int    *df_am_shell_spos;
+	int    *df_am_shell_num;
+	struct simint_shell *df_shells;
+	struct simint_multi_shellpair *df_shellpairs;
+	
     int    screen_method;
     double screen_tol;
 
@@ -37,6 +45,8 @@ extern "C" {
 #endif
 
 CMSStatus_t CMS_createSimint(BasisSet_t basis, Simint_t *simint, int nthreads, double prim_scrval);
+
+CMSStatus_t CMS_createSimint_DF(BasisSet_t basis, BasisSet_t df_basis, Simint_t *simint, int nthreads);
 
 CMSStatus_t CMS_destroySimint(Simint_t simint, int show_stat);
 
@@ -73,13 +83,32 @@ void CMS_Simint_createThreadMultishellpair(void **thread_multi_shellpair);
 
 void CMS_Simint_freeThreadMultishellpair(void **thread_multi_shellpair);
 
+void CMS_Simint_resetStatisInfo(Simint_t simint);
+
+// Computed batched 4-center integrals (M,N|P_list[i],Q_list[i])
 CMSStatus_t 
 CMS_computeShellQuartetBatch_Simint(
-    Simint_t simint, int tid,
-    int M, int N, int *P_list, int *Q_list,
+    Simint_t simint, int tid, int M, int N, int *P_list, int *Q_list,
     int npair, double **thread_batch_integrals, int *thread_batch_nints,
     void **thread_multi_shellpairs
 );
+
+// Compute batched density fitting 3-center integrals (M,N|P_i)
+CMSStatus_t
+CMS_Simint_computeDFShellQuartetBatch(
+	Simint_t simint, int tid, int M, int N, int *P_list, int npairs, 
+	double **thread_batch_integrals, int *thread_batch_nints,
+	void **thread_multi_shellpair
+);
+
+// Compute density fitting 2-center integrals 
+CMSStatus_t
+CMS_Simint_computeDFShellPair(
+	Simint_t simint, int tid, int M, int N,
+	double **integrals, int *nints
+);
+
+double CMS_Simint_getDFShellpairScreenVal(Simint_t simint, int i);
 
 void CMS_Simint_resetStatisInfo(Simint_t simint);
 

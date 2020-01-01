@@ -1,5 +1,5 @@
-#ifndef _YATDFT_CDIIS_H_
-#define _YATDFT_CDIIS_H_
+#ifndef __CDIIS_H__
+#define __CDIIS_H__
 
 #include "TinyDFT_typedef.h"
 

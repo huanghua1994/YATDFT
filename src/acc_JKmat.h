@@ -1,5 +1,5 @@
-#ifndef _YATDFT_ACC_JKMAT_H_
-#define _YATDFT_ACC_JKMAT_H_
+#ifndef __ACC_JKMAT_H__
+#define __ACC_JKMAT_H__
 
 #include "TinyDFT_typedef.h"
 

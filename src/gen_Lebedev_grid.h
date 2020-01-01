@@ -1,6 +1,10 @@
 #ifndef __GEN_LEBEDEV_GRID_H__
 #define __GEN_LEBEDEV_GRID_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Generate Lebedev grids for sphere integral
 // Input parameter:
 //   nPoints : Number pf Lebedev grid points
@@ -10,4 +14,9 @@
 //              input nPoint value is not supported
 int gen_Lebedev_grid(const int nPoints, double *Out);
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif
+

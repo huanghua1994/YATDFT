@@ -20,8 +20,9 @@ CFLAGS += -DUSE_LIBXC
 endif
 
 OBJS =  CMS_basis.o CMS_simint.o utils.o ket_sp_list.o TinyDFT_typedef.o \
-		acc_JKmat.o build_HF_mat.o gen_Lebedev_grid.o gen_int_grid.o \
-        eval_XC_func.o build_XCmat.o CDIIS.o build_Dmat.o 
+		acc_JKmat.o build_HF_mat.o gen_Lebedev_grid.o gen_int_grid.o     \
+        eval_XC_func.o build_XCmat.o CDIIS.o setup_DF.o build_JKmat_DF.o \
+        build_Dmat.o 
 
 $(LIB): $(OBJS) 
 	$(AR) $@ $^
@@ -61,6 +62,12 @@ build_XCmat.o: Makefile gen_int_grid.h eval_XC_func.h build_XCmat.h build_XCmat.
 
 CDIIS.o: Makefile TinyDFT_typedef.h CDIIS.h CDIIS.c 
 	$(CC) $(CFLAGS) $(INCS) -c CDIIS.c -o $@ 
+
+setup_DF.o: Makefile TinyDFT_typedef.h setup_DF.h setup_DF.c 
+	$(CC) $(CFLAGS) $(INCS) -c setup_DF.c -o $@ 
+
+build_JKmat_DF.o: Makefile TinyDFT_typedef.h build_JKmat_DF.h build_JKmat_DF.c 
+	$(CC) $(CFLAGS) $(INCS) -c build_JKmat_DF.c -o $@ 
 
 build_Dmat.o: Makefile TinyDFT_typedef.h build_Dmat.h build_Dmat.c 
 	$(CC) $(CFLAGS) $(INCS) -c build_Dmat.c -o $@ 

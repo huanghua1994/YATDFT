@@ -25,6 +25,10 @@ const static int impl_xc_func[8]  = {
     GGA_C_PBE, GGA_C_LYP//, GGA_C_P86  // GGA_C_P86 seems to have accuracy issue, fix it later
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // Evaluate LDA XC functional E_xc = \int G(rho(r)) dr
 // Input parameters:
 //   fid : XC functional ID
@@ -49,5 +53,9 @@ void eval_GGA_exc_vxc(
     const int fid, const int npt, const double *rho, const double *sigma, 
     double *exc, double *vrho, double *vsigma
 );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
