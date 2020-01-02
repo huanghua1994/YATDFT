@@ -1,5 +1,5 @@
-#ifndef _YATDFT_BUILD_DMAT_H_
-#define _YATDFT_BUILD_DMAT_H_
+#ifndef __BUILD_DMAT_H__
+#define __BUILD_DMAT_H__
 
 #include "TinyDFT_typedef.h"
 
@@ -15,6 +15,14 @@ extern "C" {
 // Output parameter:
 //   D_mat : Initial density matrix, size nbf * nbf
 void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat);
+
+// Do an incomplete Cholesky decomposition of D to form Cocc for density fitting
+// Input parameters:
+//   TinyDFT : Initialized TinyDFT structure
+//   D_mat   : Density matrix, size nbf * nbf
+// Output parameter:
+//   Cocc_mat : Cocc matrix, size nbf * n_occ
+void TinyDFT_build_Cocc_from_Dmat(TinyDFT_t TinyDFT, const double *D_mat, double *Cocc_mat);
 
 // Build density matrix using eigen-decomposition
 // Input parameter:

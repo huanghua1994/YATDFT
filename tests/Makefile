@@ -19,16 +19,16 @@ CFLAGS  += -DUSE_LIBXC
 LDFLAGS += -L$(LIBXC_LIBDIR) -lxc
 endif
 
-SRCS = HFSCF.c KSDFT.c
+SRCS = HFSCF.c KSDFT.c HFSCF-DF.c
 OBJS = $(SRCS:.c=.o)
-EXES = $(OBJS:.o=.x)
+EXES = $(OBJS:.o=.exe)
 
 all: $(EXES)
 
 %.o: %.c
 	$(CC) $(CFLAGS)  -c $^ 
 
-%.x: %.o $(LIBS)
+%.exe: %.o $(LIBS)
 	$(CC) $(LDFLAGS) -o $@ $^ 
 
 clean:

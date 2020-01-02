@@ -72,19 +72,22 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     printf("    # occupied orbits = %d\n", TinyDFT->n_occ);
     printf("    # charge          = %d\n", TinyDFT->charge);
     printf("    # electrons       = %d\n", TinyDFT->electron);
-    int nthread = TinyDFT->nthread;
-    int natom   = TinyDFT->natom;
-    int nshell  = TinyDFT->nshell;
-    int nbf     = TinyDFT->nbf;
-    int n_occ   = TinyDFT->n_occ;
+    int nthread      = TinyDFT->nthread;
+    int natom        = TinyDFT->natom;
+    int nshell       = TinyDFT->nshell;
+    int nbf          = TinyDFT->nbf;
+    int n_occ        = TinyDFT->n_occ;
+    int num_total_sp = TinyDFT->num_total_sp;
+    int num_valid_sp = TinyDFT->num_valid_sp;
     
-    // Allocate memory for ERI info arrays
-    CMS_createSimint(TinyDFT->basis, &(TinyDFT->simint), nthread, TinyDFT->prim_scrtol);
-    TinyDFT->valid_sp_lid  = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->num_valid_sp);
-    TinyDFT->valid_sp_rid  = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->num_valid_sp);
-    TinyDFT->shell_bf_sind = (int*)    ALIGN64B_MALLOC(INT_SIZE * (nshell + 1));
-    TinyDFT->shell_bf_num  = (int*)    ALIGN64B_MALLOC(INT_SIZE * nshell);
-    TinyDFT->sp_scrval     = (double*) ALIGN64B_MALLOC(DBL_SIZE * TinyDFT->num_total_sp);
+    // Allocate memory for ERI info arrays for direct approach
+    CMS_Simint_init(TinyDFT->basis, &(TinyDFT->simint), nthread, TinyDFT->prim_scrtol);
+    TinyDFT->valid_sp_lid   = (int*)    ALIGN64B_MALLOC(INT_SIZE * num_valid_sp);
+    TinyDFT->valid_sp_rid   = (int*)    ALIGN64B_MALLOC(INT_SIZE * num_valid_sp);
+    TinyDFT->shell_bf_sind  = (int*)    ALIGN64B_MALLOC(INT_SIZE * (nshell + 1));
+    TinyDFT->shell_bf_num   = (int*)    ALIGN64B_MALLOC(INT_SIZE * nshell);
+    TinyDFT->sp_scrval      = (double*) ALIGN64B_MALLOC(DBL_SIZE * num_total_sp);
+    TinyDFT->bf_pair_scrval = (double*) ALIGN64B_MALLOC(DBL_SIZE * nbf * nbf);
     assert(TinyDFT->valid_sp_lid  != NULL);
     assert(TinyDFT->valid_sp_rid  != NULL);
     assert(TinyDFT->shell_bf_sind != NULL);
@@ -92,13 +95,25 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     assert(TinyDFT->sp_scrval     != NULL);
     TinyDFT->mem_size += (double) (INT_SIZE * 2 * TinyDFT->num_valid_sp);
     TinyDFT->mem_size += (double) (INT_SIZE * (2 * nshell + 1));
-    TinyDFT->mem_size += (double) (DBL_SIZE * TinyDFT->num_total_sp);
+    TinyDFT->mem_size += (double) (DBL_SIZE * num_total_sp);
+    TinyDFT->mem_size += (double) (DBL_SIZE * nbf * nbf);
     for (int i = 0; i < nshell; i++)
     {
         TinyDFT->shell_bf_sind[i] = CMS_getFuncStartInd(TinyDFT->basis, i);
         TinyDFT->shell_bf_num[i]  = CMS_getShellDim    (TinyDFT->basis, i);
     }
     TinyDFT->shell_bf_sind[nshell] = nbf;
+    
+    // Molecular system and ERI info for density fitting will
+    // be allocated later if needed
+    TinyDFT->df_shell_bf_sind = NULL;
+    TinyDFT->df_shell_bf_num  = NULL;
+    TinyDFT->bf_pair_mask     = NULL;
+    TinyDFT->bf_pair_j        = NULL;
+    TinyDFT->bf_pair_diag     = NULL;
+    TinyDFT->bf_mask_displs   = NULL;
+    TinyDFT->df_sp_scrval     = NULL;
+    TinyDFT->df_basis         = NULL;
     
     // Flattened Gaussian basis function and atom info used only 
     // in XC calculation will be allocated if needed
@@ -222,6 +237,28 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     assert(TinyDFT->Cocc_mat  != NULL);
     TinyDFT->mem_size += (double) (8 * mat_msize);
     TinyDFT->mem_size += (double) (DBL_SIZE * n_occ * nbf);
+    memset(TinyDFT->Cocc_mat, 0, DBL_SIZE * n_occ * nbf);
+
+    // Tensors and matrices used only in build_JKDF will 
+    // be allocated later if needed
+    TinyDFT->mat_K_m          = NULL;
+    TinyDFT->mat_K_n          = NULL;
+    TinyDFT->mat_K_k          = NULL;
+    TinyDFT->mat_K_lda        = NULL;
+    TinyDFT->mat_K_ldb        = NULL;
+    TinyDFT->mat_K_ldc        = NULL;
+    TinyDFT->mat_K_beta       = NULL;
+    TinyDFT->mat_K_alpha      = NULL;
+    TinyDFT->pqA              = NULL;
+    TinyDFT->Jpq              = NULL;
+    TinyDFT->df_tensor        = NULL;
+    TinyDFT->temp_J           = NULL;
+    TinyDFT->temp_K           = NULL;
+    TinyDFT->mat_K_a          = NULL;
+    TinyDFT->mat_K_b          = NULL;
+    TinyDFT->mat_K_c          = NULL;
+    TinyDFT->mat_K_transa     = NULL;
+    TinyDFT->mat_K_transb     = NULL;
 
     double et = get_wtime_sec();
     TinyDFT->init_time = et - st;
@@ -241,12 +278,22 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     
     printf("TinyDFT memory usage = %.2lf MB\n", TinyDFT->mem_size / 1048576.0);
     
-    // Free ERI info arrays
+    // Free ERI info arrays for direct approach
     ALIGN64B_FREE(TinyDFT->valid_sp_lid);
     ALIGN64B_FREE(TinyDFT->valid_sp_rid);
     ALIGN64B_FREE(TinyDFT->shell_bf_sind);
     ALIGN64B_FREE(TinyDFT->shell_bf_num);
     ALIGN64B_FREE(TinyDFT->sp_scrval);
+    ALIGN64B_FREE(TinyDFT->bf_pair_scrval);
+    
+    // Free ERI info arrays for density fitting
+    ALIGN64B_FREE(TinyDFT->df_shell_bf_sind);
+    ALIGN64B_FREE(TinyDFT->df_shell_bf_num);
+    ALIGN64B_FREE(TinyDFT->bf_pair_mask);
+    ALIGN64B_FREE(TinyDFT->bf_pair_j);
+    ALIGN64B_FREE(TinyDFT->bf_pair_diag);
+    ALIGN64B_FREE(TinyDFT->bf_mask_displs);
+    ALIGN64B_FREE(TinyDFT->df_sp_scrval);
     
     // Free flattened Gaussian basis function and atom info used only 
     // in XC calculation
@@ -306,10 +353,30 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     ALIGN64B_FREE(TinyDFT->K_mat);
     ALIGN64B_FREE(TinyDFT->X_mat);
     ALIGN64B_FREE(TinyDFT->Cocc_mat);
+    
+    // Free Tensors and matrices used only in build_JKDF
+    free(TinyDFT->mat_K_m);
+    free(TinyDFT->mat_K_n);
+    free(TinyDFT->mat_K_k);
+    free(TinyDFT->mat_K_lda);
+    free(TinyDFT->mat_K_ldb);
+    free(TinyDFT->mat_K_ldc);
+    free(TinyDFT->mat_K_beta);
+    free(TinyDFT->mat_K_alpha);
+    ALIGN64B_FREE(TinyDFT->pqA);
+    ALIGN64B_FREE(TinyDFT->Jpq);
+    ALIGN64B_FREE(TinyDFT->df_tensor);
+    ALIGN64B_FREE(TinyDFT->temp_J);
+    ALIGN64B_FREE(TinyDFT->temp_K);
+    free(TinyDFT->mat_K_a);
+    free(TinyDFT->mat_K_b);
+    free(TinyDFT->mat_K_c);
+    free(TinyDFT->mat_K_transa);
+    free(TinyDFT->mat_K_transb);
 
     // Free BasisSet_t and Simint_t object, print Simint_t object stat info
     CMS_destroyBasisSet(TinyDFT->basis);
-    CMS_destroySimint(TinyDFT->simint, 1);
+    CMS_Simint_destroy(TinyDFT->simint, 1);
     
     free(TinyDFT);
     *_TinyDFT = NULL;
@@ -346,13 +413,16 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
 {
     assert(TinyDFT != NULL);
     
-    int    nshell        = TinyDFT->nshell;
-    int    *shell_bf_num = TinyDFT->shell_bf_num;
-    int    *valid_sp_lid = TinyDFT->valid_sp_lid;
-    int    *valid_sp_rid = TinyDFT->valid_sp_rid;
-    double shell_scrtol2 = TinyDFT->shell_scrtol2;
-    double *sp_scrval    = TinyDFT->sp_scrval;
-    Simint_t simint      = TinyDFT->simint;
+    int    nshell          = TinyDFT->nshell;
+    int    nbf             = TinyDFT->nbf;
+    int    *shell_bf_num   = TinyDFT->shell_bf_num;
+    int    *shell_bf_sind  = TinyDFT->shell_bf_sind;
+    int    *valid_sp_lid   = TinyDFT->valid_sp_lid;
+    int    *valid_sp_rid   = TinyDFT->valid_sp_rid;
+    double shell_scrtol2   = TinyDFT->shell_scrtol2;
+    double *sp_scrval      = TinyDFT->sp_scrval;
+    double *bf_pair_scrval = TinyDFT->bf_pair_scrval;
+    Simint_t simint        = TinyDFT->simint;
     
     double st = get_wtime_sec();
     
@@ -365,13 +435,15 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
         for (int M = 0; M < nshell; M++)
         {
             int dimM = shell_bf_num[M];
+            int M_bf_idx = shell_bf_sind[M];
             for (int N = 0; N < nshell; N++)
             {
                 int dimN = shell_bf_num[N];
+                int N_bf_idx = shell_bf_sind[N];
                 
                 int nints;
                 double *integrals;
-                CMS_computeShellQuartet_Simint(simint, tid, M, N, M, N, &integrals, &nints);
+                CMS_Simint_calc_shellquartet(simint, tid, M, N, M, N, &integrals, &nints);
                 
                 double maxval = 0.0;
                 if (nints > 0)
@@ -383,6 +455,8 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
                         {
                             int index = iN * (dimM * dimN * dimM + dimM) + iM * (dimN * dimM + 1); // Simint layout
                             double val = fabs(integrals[index]);
+                            int bf_idx = (M_bf_idx + iM) * nbf + (N_bf_idx + iN);
+                            bf_pair_scrval[bf_idx] = val;
                             if (val > maxval) maxval = val;
                         }
                     }
@@ -394,7 +468,7 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
     }
     
     // Reset Simint statistic info
-    CMS_Simint_resetStatisInfo(simint);
+    CMS_Simint_reset_stat_info(simint);
     
     // Generate unique shell pairs that survive Schwarz screening
     // eta is the threshold for screening a shell pair
@@ -414,8 +488,8 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
                 if (N > M) continue;
                 
                 // We want AM(M) >= AM(N) to avoid HRR
-                int MN_id = CMS_Simint_getShellpairAMIndex(simint, M, N);
-                int NM_id = CMS_Simint_getShellpairAMIndex(simint, N, M);
+                int MN_id = CMS_Simint_get_sp_AM_idx(simint, M, N);
+                int NM_id = CMS_Simint_get_sp_AM_idx(simint, N, M);
                 if (MN_id > NM_id)
                 {
                     valid_sp_lid[num_valid_sp] = M;

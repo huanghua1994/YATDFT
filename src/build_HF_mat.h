@@ -1,5 +1,5 @@
-#ifndef _YATDFT_BUILD_HF_MAT_H_
-#define _YATDFT_BUILD_HF_MAT_H_
+#ifndef __BUILD_HF_MAT_H__
+#define __BUILD_HF_MAT_H__
 
 #include "TinyDFT_typedef.h"
 

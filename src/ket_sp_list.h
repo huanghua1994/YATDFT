@@ -1,5 +1,5 @@
-#ifndef _YATDFT_KET_SP_LIST_H_
-#define _YATDFT_KET_SP_LIST_H_
+#ifndef __KET_SP_LIST_H__
+#define __KET_SP_LIST_H__
 
 #define MAX_LIST_SIZE 16   // == SIMINT_NSHELL_SIMD 
 #define MAX_AM_PAIRS  25   // == SLEN * SLEN in cint_basisset.c
