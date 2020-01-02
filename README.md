@@ -14,8 +14,8 @@ YATDFT can construct:
 * Core Hamiltonian matrix (Hcore)
 * Overlap matrix (S)
 * Basis transformation matrix (X)
-* Coulomb matrix (J)
-* HF exchange matrix (K)
+* Coulomb matrix (J), using direct method or density fitting
+* HF exchange matrix (K), using direct method or density fitting
 * DFT exchange-correlation matrix (XC)
   * Built-in LDA XC functionals: Slater exchange, Slater Xalpha correlation (alpha = 0.7 - 2/3), PZ81 correlation , PW92 correlation  
   * Built-in GGA XC functionals: PBE exchange & correlation, B88 exchange, LYP correlation

@@ -35,35 +35,37 @@ void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double pri
 
     simint_init();
 
-    // Allocate workbuf for all threads on this node
     s->nthread = nthread;
     s->max_am = basis->max_momentum;
-    s->workmem_per_thread = simint_ostei_workmem(0, s->max_am);
-    s->workmem_per_thread = (s->workmem_per_thread + 7) / 8 * 8;  // Align to 8 double (64 bytes)
-    s->workbuf = (double *) _mm_malloc(s->workmem_per_thread*nthread*sizeof(double), 64);
+    int max_ncart = NCART(s->max_am), buff_size;
+
+    // Allocate workbuf for all threads on this node
+    buff_size = simint_ostei_workmem(0, s->max_am);
+    if (buff_size < max_ncart * max_ncart) buff_size = max_ncart * max_ncart;
+    buff_size = (buff_size + 7) / 8 * 8;  // Align to 8 double (64 bytes)
+    s->workmem_per_thread = buff_size;
+    s->workbuf = (double *) _mm_malloc(s->workmem_per_thread * nthread * sizeof(double), 64);
     CMS_ASSERT(s->workbuf != NULL);
 
     // Allocate outbuf for all threads on this node
-    int max_ncart = NCART(s->max_am);
-    int maxsize = max_ncart * max_ncart * max_ncart * max_ncart;
-    maxsize = (maxsize + 7) / 8 * 8;   // Align to 8 double (64 bytes)
-
     // Output buffer should holds Simint_NSHELL_SIMD ERI results
     // +8 for Simint primitive screening statistic info 
-    s->outmem_per_thread = maxsize * _Simint_NSHELL_SIMD + 8;  
+    buff_size = max_ncart * max_ncart * max_ncart * max_ncart;
+    buff_size = (buff_size + 7) / 8 * 8;   // Align to 8 double (64 bytes)
+    s->outmem_per_thread = buff_size * _SIMINT_NSHELL_SIMD + 8;  
     s->outbuf = (double *) _mm_malloc(s->outmem_per_thread * nthread * sizeof(double), 64);
     CMS_ASSERT(s->outbuf != NULL);
 
     // Form and store Simint shells for all shells of this molecule
     int nshell = basis->nshells;
     size_t shells_msize = sizeof(shell_s) * nshell;
-    s->nshells = nshell;
+    s->nshell = nshell;
     s->shells = (shell_t) malloc(shells_msize);
     CMS_ASSERT(s->shells != NULL);
     s->shell_memsize = (double) shells_msize;
 
     shell_t shell_ptr = s->shells;
-    for (int i=0; i<basis->nshells; i++)
+    for (int i=0; i < nshell; i++)
     {
         // Initialize variables in structure
         simint_initialize_shell(shell_ptr); 
@@ -163,8 +165,11 @@ void CMS_Simint_setup_DF(Simint_t simint, BasisSet_t df_basis)
     // Reallocate workbuf for density fitting
     s->df_max_am = df_basis->max_momentum;
     if (s->df_max_am > s->max_am) s->max_am = s->df_max_am; 
-    s->workmem_per_thread = simint_ostei_workmem(0, s->max_am);
-    s->workmem_per_thread = (s->workmem_per_thread + 7) / 8 * 8;  // Align to 8 double (64 bytes)
+    int max_ncart = NCART(s->max_am);
+    int buff_size = simint_ostei_workmem(0, s->max_am);
+    if (buff_size < max_ncart * max_ncart) buff_size = max_ncart * max_ncart;
+    buff_size = (buff_size + 7) / 8 * 8; // Align to 8 double (64 bytes)
+    s->workmem_per_thread = buff_size;
     _mm_free(s->workbuf);
     s->workbuf = (double *) _mm_malloc(s->workmem_per_thread * s->nthread * sizeof(double), 64);
     CMS_ASSERT(s->workbuf != NULL);
@@ -173,14 +178,14 @@ void CMS_Simint_setup_DF(Simint_t simint, BasisSet_t df_basis)
     // The last shell is the unit shell
     int df_nshell = df_basis->nshells;
     size_t df_shells_msize = sizeof(shell_s) * (df_nshell + 1);
-    s->df_nshells = df_nshell;
+    s->df_nshell = df_nshell;
     s->df_shells = (shell_t) malloc(df_shells_msize);
     CMS_ASSERT(s->shells != NULL);
     s->shell_memsize = (double) df_shells_msize;
     
     // Copy all density fitting shells 
     shell_t df_shell_ptr = s->df_shells;
-    for (int i = 0; i < df_basis->nshells; i++)
+    for (int i = 0; i < df_nshell; i++)
     {
         // Initialize variables in structure
         simint_initialize_shell(df_shell_ptr); 
@@ -258,7 +263,7 @@ void CMS_Simint_setup_DF(Simint_t simint, BasisSet_t df_basis)
 
 void CMS_Simint_free_DF_shellpairs(Simint_t simint)
 {
-    int df_nshell = simint->df_nshells;
+    int df_nshell = simint->df_nshell;
     
     simint_free_shells(df_nshell + 1, simint->df_shells);
     simint_free_multi_shellpairs(df_nshell, simint->df_shellpairs);
@@ -308,7 +313,13 @@ void CMS_Simint_destroy(Simint_t simint, int show_stat)
     }
 
     // Free shell pair info
-    int nshell = simint->nshells;
+    int nshell = simint->nshell;
+    int df_nshell = simint->df_nshell;
+    if (simint->df_shells != NULL)
+    {
+        simint_free_shells(df_nshell + 1, simint->df_shells);
+        simint_free_multi_shellpairs(df_nshell, simint->df_shellpairs);
+    }
     simint_free_shells(nshell, simint->shells);
     simint_free_multi_shellpairs(nshell * nshell, simint->shellpairs);
 
@@ -336,7 +347,7 @@ void CMS_Simint_destroy(Simint_t simint, int show_stat)
 int  CMS_Simint_get_sp_AM_idx(Simint_t simint, int P, int Q)
 {
     shell_t shells = simint->shells;
-    return shells[P].am * ((_Simint_OSTEI_MAXAM) + 1) + shells[Q].am;
+    return shells[P].am * ((_SIMINT_OSTEI_MAXAM) + 1) + shells[Q].am;
 }
 
 double CMS_Simint_get_DF_sp_scrval(Simint_t simint, int i)
@@ -356,9 +367,8 @@ void CMS_Simint_create_multi_sp(void **multi_sp_)
     *multi_sp_ = multi_sp;
 }
 
-void CMS_Simint_free_multi_sp(void **multi_sp_)
+void CMS_Simint_free_multi_sp(void *multi_sp)
 {
-    multi_sp_t multi_sp = *multi_sp_;
     CMS_ASSERT(multi_sp != NULL);
     simint_free_multi_shellpair(multi_sp);
     free(multi_sp);
@@ -371,12 +381,12 @@ static void CMS_Simint_fill_multi_sp_list(
 {
     // Put the original multi_shellpairs corresponding to the shell
     // pairs (P_list[i], Q_list[i]) into the list
-    multi_sp_t Pin[_Simint_NSHELL_SIMD];
+    multi_sp_t Pin[_SIMINT_NSHELL_SIMD];
     for (int ipair = 0; ipair < npair; ipair++)
     {
         int P = P_list[ipair];
         int Q = Q_list[ipair];
-        Pin[ipair] = &simint->shellpairs[P * simint->nshells + Q];
+        Pin[ipair] = &simint->shellpairs[P * simint->nshell + Q];
     }
     
     // Reset output multi_sp and copy from existing multi_shellpairs.
@@ -398,25 +408,21 @@ void CMS_Simint_calc_pair_Hcore(
 
     size = NCART(shells[A].am) * NCART(shells[B].am);
 
-    double *temp = (double *) malloc(sizeof(double) * size);
-    CMS_ASSERT(temp != NULL);
-
-    ret = simint_compute_ke(&shells[A], &shells[B], temp);
+    double *workbuf = &simint->workbuf[tid * simint->workmem_per_thread];
+    ret = simint_compute_ke(&shells[A], &shells[B], workbuf);
     CMS_ASSERT(ret == 1);
 
-    double *output_buff = &simint->outbuf[tid*simint->outmem_per_thread];
+    double *output_buff = &simint->outbuf[tid * simint->outmem_per_thread];
     ret = simint_compute_potential(
         basis->natoms, basis->charge, basis->xn, basis->yn, basis->zn,
        &shells[A], &shells[B], output_buff
     );
     CMS_ASSERT(ret == 1);
+    
+    for (int i = 0; i < size; i++) output_buff[i] += workbuf[i];
 
     *integrals = output_buff;
     *nint = size;
-
-    double *p = *integrals;
-    for (int i = 0; i < size; i++) p[i] += temp[i];
-    free(temp);
 }
 
 void CMS_Simint_calc_pair_ovlp(
@@ -443,8 +449,9 @@ void CMS_Simint_calc_shellquartet(
 
     if (tid == 0) setup_start = CMS_get_walltime_sec();
 
-    multi_sp_t bra_pair = &simint->shellpairs[M*simint->nshells + N];
-    multi_sp_t ket_pair = &simint->shellpairs[P*simint->nshells + Q];
+    int nshell = simint->nshell;
+    multi_sp_t bra_pair = &simint->shellpairs[M * nshell + N];
+    multi_sp_t ket_pair = &simint->shellpairs[P * nshell + Q];
     
     simint->num_multi_shellpairs[tid] += 1.0;
     simint->sum_nprim[tid] += (double) ket_pair->nprim;
@@ -492,15 +499,15 @@ void CMS_Simint_calc_shellquartet(
 }
 
 void CMS_Simint_calc_shellquartet_batch(
-    Simint_t simint, int tid, int M, int N, int *P_list, int *Q_list,
-    int npair, double **batch_ERI, int *batch_nint, void **multi_sp_
+    Simint_t simint, int tid, int M, int N, int npair, int *P_list, 
+    int *Q_list, double **batch_ERI, int *batch_nint, void **multi_sp_
 )
 {
     double setup_start, setup_end, ostei_start, ostei_end;
     
     if (tid == 0) setup_start = CMS_get_walltime_sec();
 
-    multi_sp_t bra_pair  = &simint->shellpairs[M * simint->nshells + N];
+    multi_sp_t bra_pair  = &simint->shellpairs[M * simint->nshell + N];
     multi_sp_t ket_pairs = (multi_sp_t) *multi_sp_;
     
     CMS_Simint_fill_multi_sp_list(simint, npair, P_list, Q_list, ket_pairs);
@@ -560,7 +567,7 @@ static void CMS_Simint_fill_DF_multi_sp_list(
 {
     // Put the original multi_shellpairs corresponding to the shell
     // pairs (P_list[i], Q_list[i]) into the list
-    multi_sp_t Pin[_Simint_NSHELL_SIMD];
+    multi_sp_t Pin[_SIMINT_NSHELL_SIMD];
     for (int ipair = 0; ipair < npair; ipair++)
     {
         int P = P_list[ipair];
@@ -633,7 +640,7 @@ void CMS_Simint_calc_DF_shellpair(
 }
 
 void CMS_Simint_calc_DF_shellquartet_batch(
-    Simint_t simint, int tid, int M, int N, int *P_list, int npair, 
+    Simint_t simint, int tid, int M, int N, int npair, int *P_list, 
     double **batch_ERI, int *batch_nint, void **multi_sp_
 )
 {
@@ -641,7 +648,7 @@ void CMS_Simint_calc_DF_shellquartet_batch(
 
     if (tid == 0) setup_start = CMS_get_walltime_sec();
 
-    multi_sp_t bra_pair  = &simint->shellpairs[M * simint->nshells + N];
+    multi_sp_t bra_pair  = &simint->shellpairs[M * simint->nshell + N];
     multi_sp_t ket_pairs = (multi_sp_t) *multi_sp_;
     
     CMS_Simint_fill_DF_multi_sp_list(simint, npair, P_list, ket_pairs);

@@ -258,14 +258,14 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
     double *df_sp_scrval     = TinyDFT->df_sp_scrval;
     Simint_t simint          = TinyDFT->simint;
     
-    int *P_lists = (int*) malloc(sizeof(int) * _Simint_NSHELL_SIMD * nthread);
+    int *P_lists = (int*) malloc(sizeof(int) * _SIMINT_NSHELL_SIMD * nthread);
     assert(P_lists != NULL);
     
     #pragma omp parallel 
     {
         int tid = omp_get_thread_num();
         int nint, npair;
-        int *thread_P_list = P_lists + tid * _Simint_NSHELL_SIMD;
+        int *thread_P_list = P_lists + tid * _SIMINT_NSHELL_SIMD;
         double *thread_ERIs;
         void *multi_sp;
         CMS_Simint_create_multi_sp(&multi_sp);
@@ -297,10 +297,10 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
                     thread_P_list[npair] = P;
                     npair++;
                     
-                    if (npair == _Simint_NSHELL_SIMD)
+                    if (npair == _SIMINT_NSHELL_SIMD)
                     {
                         CMS_Simint_calc_DF_shellquartet_batch(
-                            simint, tid, M, N, thread_P_list, npair, 
+                            simint, tid, M, N, npair, thread_P_list, 
                             &thread_ERIs, &nint, &multi_sp
                         );
                         if (nint > 0)
@@ -318,7 +318,7 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
                 if (npair > 0)
                 {
                     CMS_Simint_calc_DF_shellquartet_batch(
-                        simint, tid, M, N, thread_P_list, npair, 
+                        simint, tid, M, N, npair, thread_P_list, 
                         &thread_ERIs, &nint, &multi_sp
                     );
                     if (nint > 0)
@@ -334,7 +334,7 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
             }  // for (int iAM = 0; iAM <= simint->df_max_am; iAM++)
         }  // for (int iMN = 0; iMN < TinyDFT->num_valid_sp; iMN++)
         
-        CMS_Simint_free_multi_sp(&multi_sp);
+        CMS_Simint_free_multi_sp(multi_sp);
     }  // #pragma omp parallel 
     
     free(P_lists);

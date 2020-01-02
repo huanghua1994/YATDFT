@@ -347,8 +347,8 @@ void acc_Kmat(ACC_JKMAT_IN_PARAM)
                         FM_strip_buf, FM_strip_offset, FN_strip_buf, FN_strip_offset
 
 void acc_JKmat_with_ket_sp_list(
-    TinyDFT_t TinyDFT, int tid, int M, int N, int *P_list, int *Q_list, 
-    int npairs, double *ERIs, int nints, double *FM_strip_buf, double *FN_strip_buf,
+    TinyDFT_t TinyDFT, int tid, int M, int N, int npair, int *P_list, int *Q_list, 
+    double *ERIs, int nints, double *FM_strip_buf, double *FN_strip_buf,
     int *Mpair_flag, int *Npair_flag, int build_J, int build_K
 )
 {
@@ -357,7 +357,7 @@ void acc_JKmat_with_ket_sp_list(
     int load_P, write_P, prev_P = -1;
     int FM_strip_offset = mat_blk_ptr[M * nshell];
     int FN_strip_offset = mat_blk_ptr[N * nshell];
-    for (int ipair = 0; ipair < npairs; ipair++)
+    for (int ipair = 0; ipair < npair; ipair++)
     {
         int curr_P = P_list[ipair];
         int curr_Q = Q_list[ipair];
@@ -371,7 +371,7 @@ void acc_JKmat_with_ket_sp_list(
         
         load_P  = (prev_P == curr_P) ? 0 : 1;
         write_P = 0;
-        if (ipair == npairs - 1)
+        if (ipair == npair - 1)
         {
             write_P = 1;
         } else {

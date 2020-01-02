@@ -17,8 +17,8 @@ void acc_JKmat(ACC_JKMAT_IN_PARAM);
 
 // Accumulate a list of shell quartet ERI tensors to local J and K matrix buffers
 void acc_JKmat_with_ket_sp_list(
-    TinyDFT_t TinyDFT, int tid, int M, int N, int *P_list, int *Q_list, int npairs, 
-    double *ERIs, int nints, double *FM_strip_buf, double *FN_strip_buf, 
+    TinyDFT_t TinyDFT, int tid, int M, int N, int npair, int *P_list, int *Q_list, 
+    double *ERIs, int nint, double *FM_strip_buf, double *FN_strip_buf, 
     int *Mpair_flag, int *Npair_flag, int build_J, int build_K
 );
 
