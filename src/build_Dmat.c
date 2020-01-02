@@ -43,6 +43,44 @@ void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat)
     for (int i = 0; i < mat_size; i++) D_mat[i] *= R;
 }
 
+void TinyDFT_build_Cocc_from_Dmat(TinyDFT_t TinyDFT, const double *D_mat, double *Cocc_mat)
+{
+    int    nbf       = TinyDFT->nbf;
+    int    n_occ     = TinyDFT->n_occ;
+    int    mat_size  = TinyDFT->mat_size;
+    double *Chol_mat = TinyDFT->tmp_mat;
+    
+    int rank;
+    int *piv = (int*) malloc(sizeof(int) * nbf);
+    memcpy(Chol_mat, D_mat, DBL_SIZE * mat_size);
+    LAPACKE_dpstrf(LAPACK_ROW_MAJOR, 'L', nbf, Chol_mat, nbf, piv, &rank, 1e-12);
+    
+    if (rank < n_occ)
+    {
+        for (int i = 0; i < nbf; i++)
+        {
+            double *Chol_row = Chol_mat + i * nbf;
+            for (int j = rank; j < n_occ; j++) Chol_row[j] = 0.0;
+        }
+    }
+    
+    for (int i = 0; i < n_occ; i++)
+    {
+        double *Cocc_row = Cocc_mat + i * n_occ;
+        double *Chol_row = Chol_mat + i * nbf;
+        for (int j = 0; j < i; j++) Cocc_row[j] = Chol_row[j];
+        for (int j = i; j < n_occ; j++) Cocc_row[j] = 0.0;
+    }
+    for (int i = n_occ; i < nbf; i++)
+    {
+        double *Cocc_row = Cocc_mat + i * n_occ;
+        double *Chol_row = Chol_mat + i * nbf;
+        memcpy(Cocc_row, Chol_row, DBL_SIZE * n_occ);
+    }
+    
+    free(piv);
+}
+
 static void quickSort(double *eigval, int *ev_idx, int l, int r)
 {
     int i = l, j = r, iswap;

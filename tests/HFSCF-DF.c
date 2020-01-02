@@ -100,13 +100,15 @@ int main(int argc, char **argv)
     TinyDFT_t TinyDFT;
     TinyDFT_init(&TinyDFT, argv[1], argv[3]);
     
-    // Compute constant matrices and get initial guess for D
+    // Compute constant matrices
     TinyDFT_build_Hcore_S_X_mat(TinyDFT, TinyDFT->Hcore_mat, TinyDFT->S_mat, TinyDFT->X_mat);
-    //TinyDFT_build_Dmat_SAD(TinyDFT, TinyDFT->D_mat);
-    memset(TinyDFT->D_mat, 0, sizeof(double) * TinyDFT->nbf * TinyDFT->nbf);
     
     // Set up density fitting
     TinyDFT_setup_DF(TinyDFT, argv[2], argv[3]);
+    
+    // Get initial guess for density fitting
+    TinyDFT_build_Dmat_SAD(TinyDFT, TinyDFT->D_mat);
+    TinyDFT_build_Cocc_from_Dmat(TinyDFT, TinyDFT->D_mat, TinyDFT->Cocc_mat);
     
     // Do HFSCF calculation
     TinyDFT_HFSCF(TinyDFT, atoi(argv[4]));
