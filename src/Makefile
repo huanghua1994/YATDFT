@@ -2,7 +2,7 @@ CC  = icc
 AR  = xiar rcs
 LIB = libYATDFT.a
 
-USE_LIBXC = 1
+USE_LIBXC = 0
 
 BLAS_LIB       = -mkl=parallel
 SIMINT_INCDIR  = /home/mkurisu/Workspace/simint/build-avx/install/include

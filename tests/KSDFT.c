@@ -112,8 +112,8 @@ int main(int argc, char **argv)
     printf("TinyDFT compute Hcore, S, X matrices over,         elapsed time = %.3lf (s)\n", et - st);
     
     // Set up XC numerical integral environments
-    char xf_str[5] = "LDA_X";
-    char cf_str[8] = "LDA_C_XA";
+    char xf_str[6]  = "LDA_X\0";
+    char cf_str[10] = "LDA_C_XA\0";
     st = get_wtime_sec();
     if (argc >= 6)
     {

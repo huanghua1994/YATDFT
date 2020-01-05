@@ -1,6 +1,6 @@
 CC = icc
 
-USE_LIBXC = 1
+USE_LIBXC = 0
 
 BLAS_LIB       = -mkl=parallel
 SIMINT_INCDIR  = /home/mkurisu/Workspace/simint/build-avx/install/include
@@ -19,7 +19,7 @@ CFLAGS  += -DUSE_LIBXC
 LDFLAGS += -L$(LIBXC_LIBDIR) -lxc
 endif
 
-SRCS = HFSCF.c KSDFT.c HFSCF-DF.c
+SRCS = AnySCF.c HFSCF.c KSDFT.c HFSCF-DF.c
 OBJS = $(SRCS:.c=.o)
 EXES = $(OBJS:.o=.exe)
 
