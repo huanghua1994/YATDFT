@@ -171,7 +171,7 @@ int main(int argc, char **argv)
     {
         if (argc < 7)
         {
-            printf("You need to provide a denfit aux basis set!\n");
+            printf("You need to provide a density fitting auxiliary basis set!\n");
             print_usage(argv[0]);
             return 255;
         }
@@ -200,7 +200,7 @@ int main(int argc, char **argv)
         st = get_wtime_sec();
         TinyDFT_setup_XC_integral(TinyDFT, xf_str, cf_str);
         et = get_wtime_sec();
-        printf("TinyDFT set up XC integral over, nintp = %8d, elapsed time = %.3lf (s)\n", TinyDFT->nintp, et - st);
+        printf("TinyDFT set up XC integral over,                   elapsed time = %.3lf (s)\n", et - st);
     }
     
     // Do SCF calculation

@@ -137,6 +137,7 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
     double st = get_wtime_sec();
     
     int    nbf             = TinyDFT->nbf;
+    int    n_occ           = TinyDFT->n_occ;
     int    df_nbf          = TinyDFT->df_nbf;
     int    mat_size        = TinyDFT->mat_size;
     int    num_total_sp    = TinyDFT->num_total_sp;
@@ -180,8 +181,7 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
         bf_mask_displs[i + 1] = bf_pair_nnz;
     }
     
-    double sp_sparsity = (double) num_valid_sp / (double) num_total_sp;
-    double bf_pair_sparsity = (double) bf_pair_nnz / (double) mat_size;
+    double bf_pair_sparsity = 100.0 * (double) bf_pair_nnz / (double) mat_size;
     
     double et = get_wtime_sec();
     double ut = et - st;
@@ -197,9 +197,15 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
     et = get_wtime_sec();
     ut = et - st;
     
+    double temp_K_MB    = (double) df_nbf * (double) n_occ * (double) nbf;
+    double df_tensor_MB = (double) bf_pair_nnz * (double) df_nbf * DBL_SIZE;
+    temp_K_MB    /= 1048576.0;
+    df_tensor_MB /= 1048576.0;
+    
     printf("TinyDFT memory allocation and initialization over, elapsed time = %.3lf (s)\n", ut);
     printf("TinyDFT regular + density fitting memory usage = %.2lf MB \n", TinyDFT->mem_size / 1048576.0);
-    printf("#### Sparsity of shell / bf pairs = %lf, %lf\n", sp_sparsity, bf_pair_sparsity);
+    printf("#### Density fitting storage & auxiliary work buffer = %.2lf, %.2lf MB\n", df_tensor_MB, df_tensor_MB + temp_K_MB);
+    printf("#### Density fitting screened basis function pairs: %d out of %d (sparsity = %.2lf%%)\n", bf_pair_nnz, mat_size, bf_pair_sparsity);
 }
 
 static void copy_3center_integral_results(

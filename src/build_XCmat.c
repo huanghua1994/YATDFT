@@ -131,9 +131,8 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     assert(TinyDFT->vxc        != NULL);
     assert(TinyDFT->vsigma     != NULL);
     assert(TinyDFT->XC_workbuf != NULL);
-    TinyDFT->mem_size += (double) (DBL_SIZE * nintp_blk * nbf * 4);
-    TinyDFT->mem_size += (double) (DBL_SIZE * nintp_blk * 8);
-    TinyDFT->mem_size += (double) (workbuf_msize);
+    size_t XC_msize = DBL_SIZE * (nintp_blk * nbf * 4 + nintp_blk * 8) + workbuf_msize;
+    TinyDFT->mem_size += (double) (XC_msize);
     
     TinyDFT->xf_id = -1;
     TinyDFT->cf_id = -1;
@@ -217,6 +216,11 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
         printf("FATAL: exchange and correlation functionals are not the same family!\n");
         assert(TinyDFT->xf_family == TinyDFT->cf_family);
     }
+    
+    printf(
+        "#### XC numerical integral: total points = %d, batch size = %d, used memory = %.2lf MB\n", 
+        nintp, nintp_blk, (double)XC_msize / 1048576.0
+    );
 }
 
 // Evaluate basis functions at specified integral grid points

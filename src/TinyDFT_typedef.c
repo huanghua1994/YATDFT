@@ -276,7 +276,7 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     TinyDFT_t TinyDFT = *_TinyDFT;
     assert(TinyDFT != NULL);
     
-    printf("TinyDFT memory usage = %.2lf MB\n", TinyDFT->mem_size / 1048576.0);
+    printf("TinyDFT total memory usage = %.2lf MB\n", TinyDFT->mem_size / 1048576.0);
     
     // Free ERI info arrays for direct approach
     ALIGN64B_FREE(TinyDFT->valid_sp_lid);
@@ -509,6 +509,11 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
     TinyDFT->shell_scr_time = et - st;
     
     // Print runtime
+    int num_total_sp = TinyDFT->num_total_sp;
     printf("TinyDFT precompute shell screening info over,      elapsed time = %.3lf (s)\n", TinyDFT->shell_scr_time);
+    printf(
+        "#### Regular screening unique screened shell pairs: %d out of %d (sparsity = %.2lf%%)\n", 
+        num_valid_sp, num_total_sp, 100.0 * (double) num_valid_sp / (double) num_total_sp
+    );
 }
 
