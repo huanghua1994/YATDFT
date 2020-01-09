@@ -212,66 +212,88 @@ void gen_int_grid(
             atom_idx += npt_i;
         }  // End of i loop
         
-        // (3) Calculate the mask tensor and the actual weights
-        // W_mat(j, k, i): fuzzy weight of integral point i to atom pair (j, k)
-        for (int j = 0; j < natom; j++)
+        #pragma omp parallel 
         {
-            double *dip_j = dip + j * atom_npt;
-            #pragma omp simd
-            for (int i = 0; i < atom_npt; i++)
-            {
-                double dx = atom_ipx[i] - atom_x[j];
-                double dy = atom_ipy[i] - atom_y[j];
-                double dz = atom_ipz[i] - atom_z[j];
-                dip_j[i] = sqrt(dx * dx + dy * dy + dz * dz);
-            }
-        }  // End of j loop
-        // TODO: OpenMP parallelize this loop
-        for (int j = 0; j < natom; j++)
-        {
-            for (int k = 0; k < natom; k++)
+            // (3) Calculate the mask tensor and the actual weights
+            // W_mat(j, k, i): fuzzy weight of integral point i to atom pair (j, k)
+            #pragma omp for
+            for (int j = 0; j < natom; j++)
             {
                 double *dip_j = dip + j * atom_npt;
-                double *dip_k = dip + k * atom_npt;
-                double *W_jk  = W_mat + (j * natom + k) * atom_npt;
-                if (j == k)
-                {
-                    for (int i = 0; i < atom_npt; i++) W_jk[i] = 1.0;
-                } else {
-                    double inv_djk = 1.0 / dist[j * natom + k];
-                    #pragma omp simd
-                    for (int i = 0; i < atom_npt; i++)
-                    {
-                        double mu = (dip_j[i] - dip_k[i]) * inv_djk;
-                        
-                        // s(d(i,j)) = 0.5 * (1 - p(p(p(d(i,j)))))
-                        mu = 1.5 * mu - 0.5 * mu * mu * mu;
-                        mu = 1.5 * mu - 0.5 * mu * mu * mu;
-                        mu = 1.5 * mu - 0.5 * mu * mu * mu;
-                        
-                        W_jk[i] = 0.5 * (1.0 - mu);
-                    }
-                }  // End of "if (j == k)"
-            }  // End of k loop
-        }  // End of j loop
-        
-        // (4) Calculate the final integral weights
-        // \prod_{k} W_mat(j, k, :) is the actual weight of integral points
-        // belonging to atom k. Normalizing it gives us the fuzzy weight.
-        for (int i = 0; i < natom * atom_npt; i++) pvec[i] = 1.0;
-        memset(sum_pvec, 0, sizeof(double) * atom_npt);
-        // TODO: OpenMP parallelize this loop
-        for (int j = 0; j < natom; j++)
-        {
-            double *pvec_j = pvec + j * atom_npt;
-            for (int k = 0; k < natom; k++)
-            {
-                double *W_jk =  W_mat + (j * natom + k) * atom_npt;
                 #pragma omp simd
-                for (int i = 0; i < atom_npt; i++) pvec_j[i] *= W_jk[i];
+                for (int i = 0; i < atom_npt; i++)
+                {
+                    double dx = atom_ipx[i] - atom_x[j];
+                    double dy = atom_ipy[i] - atom_y[j];
+                    double dz = atom_ipz[i] - atom_z[j];
+                    dip_j[i] = sqrt(dx * dx + dy * dy + dz * dz);
+                }
+            }  // End of j loop
+            
+            #pragma omp barrier
+            
+            #pragma omp for
+            for (int j = 0; j < natom; j++)
+            {
+                for (int k = 0; k < natom; k++)
+                {
+                    double *dip_j = dip + j * atom_npt;
+                    double *dip_k = dip + k * atom_npt;
+                    double *W_jk  = W_mat + (j * natom + k) * atom_npt;
+                    if (j == k)
+                    {
+                        for (int i = 0; i < atom_npt; i++) W_jk[i] = 1.0;
+                    } else {
+                        double inv_djk = 1.0 / dist[j * natom + k];
+                        #pragma omp simd
+                        for (int i = 0; i < atom_npt; i++)
+                        {
+                            double mu = (dip_j[i] - dip_k[i]) * inv_djk;
+                            
+                            // s(d(i,j)) = 0.5 * (1 - p(p(p(d(i,j)))))
+                            mu = 1.5 * mu - 0.5 * mu * mu * mu;
+                            mu = 1.5 * mu - 0.5 * mu * mu * mu;
+                            mu = 1.5 * mu - 0.5 * mu * mu * mu;
+                            
+                            W_jk[i] = 0.5 * (1.0 - mu);
+                        }
+                    }  // End of "if (j == k)"
+                }  // End of k loop
+            }  // End of j loop
+
+            // (4) Calculate the final integral weights
+            // \prod_{k} W_mat(j, k, :) is the actual weight of integral points
+            // belonging to atom k. Normalizing it gives us the fuzzy weight.
+            
+            #pragma omp for simd
+            for (int i = 0; i < natom * atom_npt; i++) pvec[i] = 1.0;
+            
+            #pragma omp for simd
+            for (int i = 0; i < atom_npt; i++) sum_pvec[i] = 0.0;
+            
+            #pragma omp barrier
+            
+            #pragma omp for
+            for (int j = 0; j < natom; j++)
+            {
+                double *pvec_j = pvec + j * atom_npt;
+                for (int k = 0; k < natom; k++)
+                {
+                    double *W_jk =  W_mat + (j * natom + k) * atom_npt;
+                    #pragma omp simd
+                    for (int i = 0; i < atom_npt; i++) pvec_j[i] *= W_jk[i];
+                }
             }
-            for (int i = 0; i < atom_npt; i++) sum_pvec[i] += pvec_j[i];
-        }
+            
+            #pragma omp barrier
+            
+            for (int j = 0; j < natom; j++)
+            {
+                double *pvec_j = pvec + j * atom_npt;
+                #pragma omp for simd
+                for (int i = 0; i < atom_npt; i++) sum_pvec[i] += pvec_j[i];
+            }
+        }   // End of "pragma omp parallel"
         // Copy final integral points & weights to the output matrix
         double *pvec_iatom = pvec + iatom * atom_npt;
         for (int i = 0; i < atom_npt; i++)
