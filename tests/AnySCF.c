@@ -7,6 +7,23 @@
 
 #include "TinyDFT.h"
 
+void save_mat_to_file(
+    const char *env_str, const char *format_str, const int nbf, 
+    const char *mol_name, const char *bas_name, const double *mat
+)
+{
+    if (env_str == NULL) return;
+    int need_save = atoi(env_str);
+    if (need_save != 1) return;
+    
+    char ouf_name[256];
+    sprintf(ouf_name, format_str, nbf, mol_name, bas_name);
+    FILE *ouf = fopen(ouf_name, "wb");
+    fwrite(mat, sizeof(double), nbf * nbf, ouf);
+    fclose(ouf);
+    printf("Binary file %s output finished\n", ouf_name);
+}
+
 void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, const int J_op, const int K_op)
 {
     // Start SCF iterations
@@ -70,7 +87,13 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, const int J_op, const in
                 F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] + XC_mat[i];
         }
         et1 = get_wtime_sec();
-        printf("* Build Fock matrix     : %.3lf (s), J, K/XC = %.3lf, %.3lf (s)\n", et1 - st1, st2 - st1, et1 - st2);
+        if (J_op != 0 || K_op != 0)
+        {
+            printf(
+                "* Build Fock matrix     : %.3lf (s), J, K/XC = %.3lf, %.3lf (s)\n", 
+                et1 - st1, st2 - st1, et1 - st2
+            );
+        }
         
         // Calculate new system energy
         st1 = get_wtime_sec();
@@ -92,6 +115,16 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, const int J_op, const in
         printf("* Calculate energy      : %.3lf (s)\n", et1 - st1);
         E_delta = E_curr - E_prev;
         E_prev = E_curr;
+        
+        if (TinyDFT->iter == max_iter - 1)
+        {
+            char *mol_name = TinyDFT->mol_name;
+            char *bas_name = TinyDFT->bas_name;
+            save_mat_to_file(getenv("OUTPUT_D"),  "D_%d_%s_%s.bin",  nbf, mol_name, bas_name, D_mat);
+            save_mat_to_file(getenv("OUTPUT_J"),  "J_%d_%s_%s.bin",  nbf, mol_name, bas_name, J_mat);
+            save_mat_to_file(getenv("OUTPUT_K"),  "K_%d_%s_%s.bin",  nbf, mol_name, bas_name, K_mat);
+            save_mat_to_file(getenv("OUTPUT_XC"), "XC_%d_%s_%s.bin", nbf, mol_name, bas_name, XC_mat);
+        }
         
         // CDIIS acceleration (Pulay mixing)
         st1 = get_wtime_sec();

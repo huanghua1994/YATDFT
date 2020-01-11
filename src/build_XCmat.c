@@ -113,9 +113,13 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
         &TinyDFT->nintp, &TinyDFT->int_grid
     );
     
-    int nbf   = TinyDFT->nbf;
-    int nintp = TinyDFT->nintp;
-    int nintp_blk = 1024;   // Calculate no more than 1024 points each time
+    int nbf       = TinyDFT->nbf;
+    int nintp     = TinyDFT->nintp;
+    int nthread   = TinyDFT->nthread;
+    int nintp_blk = 1024; 
+    if (nthread > 8)  nintp_blk = 2048;
+    if (nthread > 16) nintp_blk = 4096;
+    if (nthread > 32) nintp_blk = 8192;
     size_t workbuf_msize = DBL_SIZE * nintp_blk * (nbf + 6);
     workbuf_msize += DBL_SIZE * nbf * nbf;
     TinyDFT->nintp_blk  = nintp_blk;

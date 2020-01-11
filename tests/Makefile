@@ -19,7 +19,7 @@ CFLAGS  += -DUSE_LIBXC
 LDFLAGS += -L$(LIBXC_LIBDIR) -lxc
 endif
 
-SRCS = AnySCF.c HFSCF.c KSDFT.c HFSCF-DF.c
+SRCS = AnySCF.c
 OBJS = $(SRCS:.c=.o)
 EXES = $(OBJS:.o=.exe)
 
