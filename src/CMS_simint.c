@@ -92,6 +92,8 @@ void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double pri
     // Here we assume there are no unit shells (shells with zero orbital exponent)
     simint_normalize_shells(nshell, s->shells);
 
+    // For primitive screening, fast Schwarz might have issue with aug-cc-pVDZ,
+    // try to use SIMINT_SCREEN_SCHWARZ if necessary
     if (prim_scrval < 0.0 || prim_scrval > 1) prim_scrval = 1e-14;
     s->screen_method = SIMINT_SCREEN_FASTSCHWARZ;
     s->screen_tol    = prim_scrval;
