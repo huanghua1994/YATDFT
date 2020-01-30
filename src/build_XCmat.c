@@ -222,7 +222,7 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     }
     
     printf(
-        "#### XC numerical integral: total points = %d, batch size = %d, used memory = %.2lf MB\n", 
+        "XC numerical integral: total points = %d, batch size = %d, used memory = %.2lf MB\n", 
         nintp, nintp_blk, (double)XC_msize / 1048576.0
     );
 }

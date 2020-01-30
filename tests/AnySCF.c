@@ -151,6 +151,7 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, const int J_op, const in
         }
         
         TinyDFT->iter++;
+        fflush(stdout);
     }
     printf("--------------- SCF iterations finished ---------------\n");
 }
@@ -181,7 +182,7 @@ int main(int argc, char **argv)
     K_op  = atoi(argv[5]);
     if (J_op < 0 || J_op > 1) J_op = 0;
     if (K_op < 0 || K_op > 2) K_op = 0;
-    printf("[INFO] Use: ");
+    printf("%s will use: ", argv[0]);
     if (J_op == 0) printf("direct J, ");
     if (J_op == 1) printf("denfit J, ");
     if (K_op == 0) printf("direct K\n");
@@ -197,7 +198,7 @@ int main(int argc, char **argv)
     TinyDFT_build_Hcore_S_X_mat(TinyDFT, TinyDFT->Hcore_mat, TinyDFT->S_mat, TinyDFT->X_mat);
     TinyDFT_build_Dmat_SAD(TinyDFT, TinyDFT->D_mat);
     et = get_wtime_sec();
-    printf("TinyDFT compute Hcore, S, X matrices over,         elapsed time = %.3lf (s)\n", et - st);
+    printf("TinyDFT compute Hcore, S, X matrices over, elapsed time = %.3lf (s)\n", et - st);
     
     // Set up density fitting
     if (J_op == 1 || K_op == 1)
@@ -233,7 +234,7 @@ int main(int argc, char **argv)
         st = get_wtime_sec();
         TinyDFT_setup_XC_integral(TinyDFT, xf_str, cf_str);
         et = get_wtime_sec();
-        printf("TinyDFT set up XC integral over,                   elapsed time = %.3lf (s)\n", et - st);
+        printf("TinyDFT set up XC integral over, elapsed time = %.3lf (s)\n", et - st);
     }
     
     // Do SCF calculation

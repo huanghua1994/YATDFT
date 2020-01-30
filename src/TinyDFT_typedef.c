@@ -64,14 +64,14 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->shell_scrtol2 = 1e-11 * 1e-11;
     TinyDFT->E_nuc_rep     = CMS_getNucEnergy(TinyDFT->basis);
     printf("Job information:\n");
-    printf("    basis set         = %s\n", TinyDFT->bas_name);
-    printf("    molecule          = %s\n", TinyDFT->mol_name);
-    printf("    # atoms           = %d\n", TinyDFT->natom);
-    printf("    # shells          = %d\n", TinyDFT->nshell);
-    printf("    # basis functions = %d\n", TinyDFT->nbf);
-    printf("    # occupied orbits = %d\n", TinyDFT->n_occ);
-    printf("    # charge          = %d\n", TinyDFT->charge);
-    printf("    # electrons       = %d\n", TinyDFT->electron);
+    printf("    basis set       = %s\n", TinyDFT->bas_name);
+    printf("    molecule        = %s\n", TinyDFT->mol_name);
+    printf("    atoms           = %d\n", TinyDFT->natom);
+    printf("    shells          = %d\n", TinyDFT->nshell);
+    printf("    basis functions = %d\n", TinyDFT->nbf);
+    printf("    occupied orbits = %d\n", TinyDFT->n_occ);
+    printf("    charge          = %d\n", TinyDFT->charge);
+    printf("    electrons       = %d\n", TinyDFT->electron);
     int nthread      = TinyDFT->nthread;
     int natom        = TinyDFT->natom;
     int nshell       = TinyDFT->nshell;
@@ -510,9 +510,12 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
     
     // Print runtime
     int num_total_sp = TinyDFT->num_total_sp;
-    printf("TinyDFT precompute shell screening info over,      elapsed time = %.3lf (s)\n", TinyDFT->shell_scr_time);
     printf(
-        "#### Regular screening unique screened shell pairs: %d out of %d (sparsity = %.2lf%%)\n", 
+        "TinyDFT shell pair screening over, tol = %.2e, elapsed time = %.3lf (s)\n", 
+        sqrt(shell_scrtol2), TinyDFT->shell_scr_time
+    );
+    printf(
+        "Screened unique shell pairs: %d out of %d (sparsity = %.2lf%%)\n", 
         num_valid_sp, num_total_sp, 100.0 * (double) num_valid_sp / (double) num_total_sp
     );
 }

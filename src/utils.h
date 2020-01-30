@@ -15,7 +15,7 @@ extern "C" {
 // Copy a block of source matrix to the destination matrix
 void copy_dbl_mat_blk(
     double *dst, const int ldd, const double *src, const int lds, 
-    const int nrows, const int ncols
+    const int nrow, const int ncol
 );
 
 // Get current wall-clock time, similar to omp_get_wtime()
@@ -25,7 +25,7 @@ double get_wtime_sec();
 int block_spos(const int nblk, const int iblk, const int len);
 
 // For debug, print a dense matrix
-void print_dbl_mat(double *mat, const int ldm, const int nrows, const int ncols, const char *mat_name);
+void print_dbl_mat(double *mat, const int ldm, const int nrow, const int ncol, const char *mat_name);
 
 #ifdef __cplusplus
 }

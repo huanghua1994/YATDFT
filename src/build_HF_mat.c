@@ -65,7 +65,19 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
     LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', nbf, U_mat, nbf, eigval); // U_mat will be overwritten by eigenvectors
     // X = U * D^{-1/2} * U'^T
     memcpy(U0_mat, U_mat, DBL_SIZE * mat_size);
-    for (int i = 0; i < nbf; i++) eigval[i] = 1.0 / sqrt(eigval[i]);
+    int cnt = 0;
+    double S_ev_thres = 1.0e-6;
+    for (int i = 0; i < nbf; i++) 
+    {
+        if (eigval[i] >= eigval[nbf - 1] * S_ev_thres)
+        {
+            eigval[i] = 1.0 / sqrt(eigval[i]);
+            cnt++;
+        } else {
+            eigval[i] = 0.0;
+        }
+    }
+    printf("Overlap matrix S truncation: reltol = %.2e, %d out of %d eigenvectors are preserved\n", S_ev_thres, cnt, nbf);
     for (int i = 0; i < nbf; i++)
     {
         #pragma omp simd

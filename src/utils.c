@@ -7,11 +7,11 @@
 
 void copy_dbl_mat_blk(
     double *dst, const int ldd, const double *src, const int lds, 
-    const int nrows, const int ncols
+    const int nrows, const int ncol
 )
 {
     for (int irow = 0; irow < nrows; irow++)
-        memcpy(dst + irow * ldd, src + irow * lds, DBL_SIZE * ncols);
+        memcpy(dst + irow * ldd, src + irow * lds, DBL_SIZE * ncol);
 } 
 
 double get_wtime_sec()
@@ -33,12 +33,12 @@ int block_spos(const int nblk, const int iblk, const int len)
 }
 
 // For debug
-void print_dbl_mat(double *mat, const int ldm, const int nrows, const int ncols, const char *mat_name)
+void print_dbl_mat(double *mat, const int ldm, const int nrow, const int ncol, const char *mat_name)
 {
     printf("%s:\n", mat_name);
-    for (int i = 0; i < nrows; i++)
+    for (int i = 0; i < nrow; i++)
     {
-        for (int j = 0; j < ncols; j++) 
+        for (int j = 0; j < ncol; j++) 
         {
             int idx = i * ldm + j;
             double x = mat[idx];
