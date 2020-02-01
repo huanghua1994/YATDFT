@@ -197,7 +197,7 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
     et = get_wtime_sec();
     ut = et - st;
     
-    double temp_K_MB    = (double) df_nbf * (double) n_occ * (double) nbf;
+    double temp_K_MB    = (double) df_nbf * (double) n_occ * (double) nbf * DBL_SIZE;
     double df_tensor_MB = (double) bf_pair_nnz * (double) df_nbf * DBL_SIZE;
     temp_K_MB    /= 1048576.0;
     df_tensor_MB /= 1048576.0;
