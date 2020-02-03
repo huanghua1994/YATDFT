@@ -13,10 +13,13 @@ extern "C" {
 //   (3) precompute some tensors and matrices used in DF.
 // Input parameters:
 //   TinyDFT      : Initialized TinyDFT structure
-//   df_bas_fname : File name of Gaussian basis set for DF
+//   df_bas_fname : Density fitting Gaussian basis set file name
+//   xyz_fname    : Atom coordinate file name
+//   save_mem     : 1 --> reduce memory usage in DF, but slower calculation
+//                  otherwise --> use more memory in DF to get better performance
 // Output parameter:
 //   TinyDFT : TinyDFT structure with initialized DF data structures
-void TinyDFT_setup_DF(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname);
+void TinyDFT_setup_DF(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname, const int save_mem);
 
 #ifdef __cplusplus
 }

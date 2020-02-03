@@ -10,12 +10,13 @@
 #include "TinyDFT_typedef.h"
 #include "setup_DF.h"
 
-static void TinyDFT_load_DF_basis(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname)
+static void TinyDFT_load_DF_basis(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname, const int save_mem)
 {
     int nthread = TinyDFT->nthread;
     CMS_createBasisSet(&(TinyDFT->df_basis));
     CMS_loadChemicalSystem(TinyDFT->df_basis, df_bas_fname, xyz_fname);
     CMS_Simint_setup_DF(TinyDFT->simint, TinyDFT->df_basis);
+    TinyDFT->df_save_mem = (save_mem == 1) ? 1 : 0;
     TinyDFT->df_bas_name = basename(df_bas_fname);
     TinyDFT->df_nbf      = CMS_getNumFuncs (TinyDFT->df_basis);
     TinyDFT->df_nshell   = CMS_getNumShells(TinyDFT->df_basis);
@@ -65,13 +66,14 @@ static void TinyDFT_load_DF_basis(TinyDFT_t TinyDFT, char *df_bas_fname, char *x
     temp_K_msize *= DBL_SIZE;
     TinyDFT->Jpq    = (double*) ALIGN64B_MALLOC(df_mat_msize);
     TinyDFT->temp_J = (double*) ALIGN64B_MALLOC(temp_J_msize);
-    TinyDFT->temp_K = (double*) ALIGN64B_MALLOC(temp_K_msize);
+    //TinyDFT->temp_K = (double*) ALIGN64B_MALLOC(temp_K_msize);
+    TinyDFT->temp_K = NULL;   // Allocate it when needed
     assert(TinyDFT->Jpq    != NULL);
     assert(TinyDFT->temp_J != NULL);
-    assert(TinyDFT->temp_K != NULL);
+    //assert(TinyDFT->temp_K != NULL);
     TinyDFT->mem_size += (double) df_mat_msize;
     TinyDFT->mem_size += (double) temp_J_msize;
-    TinyDFT->mem_size += (double) temp_K_msize;
+    //TinyDFT->mem_size += (double) temp_K_msize;
     TinyDFT->pqA       = NULL;
     TinyDFT->df_tensor = NULL;
 }
@@ -185,27 +187,34 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
     
     double et = get_wtime_sec();
     double ut = et - st;
-    printf("TinyDFT handling shell pair sparsity over,         elapsed time = %.3lf (s)\n", ut);
+    printf("TinyDFT handling shell pair sparsity over, elapsed time = %.3lf (s)\n", ut);
+    
+    int df_save_mem = TinyDFT->df_save_mem;
+    size_t tensor_msize = (size_t) bf_pair_nnz * (size_t) df_nbf * DBL_SIZE;
+    double axu_array_MB = (double) df_nbf * (double) n_occ * (double) nbf * DBL_SIZE / 1048576.0;
+    double df_tensor_MB = tensor_msize / 1048576.0;
     
     st = get_wtime_sec();
-    size_t tensor_msize = (size_t) bf_pair_nnz * (size_t) df_nbf * DBL_SIZE;
-    TinyDFT->pqA       = (double*) ALIGN64B_MALLOC(tensor_msize);
-    TinyDFT->df_tensor = (double*) ALIGN64B_MALLOC(tensor_msize);
-    assert(TinyDFT->pqA       != NULL);
-    assert(TinyDFT->df_tensor != NULL);
-    TinyDFT->mem_size += (double) tensor_msize * 2;
+    if (df_save_mem == 0)
+    {
+        TinyDFT->pqA       = (double*) ALIGN64B_MALLOC(tensor_msize);
+        TinyDFT->df_tensor = (double*) ALIGN64B_MALLOC(tensor_msize);
+        assert(TinyDFT->pqA       != NULL);
+        assert(TinyDFT->df_tensor != NULL);
+        TinyDFT->mem_size += (double) tensor_msize * 2;
+        axu_array_MB += df_tensor_MB;
+    } else {
+        TinyDFT->pqA = (double*) ALIGN64B_MALLOC(tensor_msize);
+        assert(TinyDFT->pqA != NULL);
+        TinyDFT->df_tensor = TinyDFT->pqA;
+        TinyDFT->mem_size += (double) tensor_msize;
+    }
     et = get_wtime_sec();
     ut = et - st;
     
-    double temp_K_MB    = (double) df_nbf * (double) n_occ * (double) nbf * DBL_SIZE;
-    double df_tensor_MB = (double) bf_pair_nnz * (double) df_nbf * DBL_SIZE;
-    temp_K_MB    /= 1048576.0;
-    df_tensor_MB /= 1048576.0;
-    
-    printf("TinyDFT memory allocation and initialization over, elapsed time = %.3lf (s)\n", ut);
-    printf("TinyDFT regular + density fitting memory usage = %.2lf MB \n", TinyDFT->mem_size / 1048576.0);
-    printf("#### Density fitting storage & auxiliary work buffer = %.2lf, %.2lf MB\n", df_tensor_MB, df_tensor_MB + temp_K_MB);
-    printf("#### Density fitting screened basis function pairs: %d out of %d (sparsity = %.2lf%%)\n", bf_pair_nnz, mat_size, bf_pair_sparsity);
+    printf("TinyDFT DF memory allocation over, elapsed time = %.3lf (s)\n", ut);
+    printf("DF storage & auxiliary work buffer = %.2lf, %.2lf MB\n", df_tensor_MB, axu_array_MB);
+    printf("DF screened basis function pairs: %d out of %d (sparsity = %.2lf%%)\n", bf_pair_nnz, mat_size, bf_pair_sparsity);
 }
 
 static void copy_3center_integral_results(
@@ -481,14 +490,37 @@ static void TinyDFT_build_DF_tensor(TinyDFT_t TinyDFT)
     int    nbf         = TinyDFT->nbf;
     int    df_nbf      = TinyDFT->df_nbf;
     int    bf_pair_cnt = TinyDFT->bf_mask_displs[nbf];
+    int    df_save_mem = TinyDFT->df_save_mem;
     double *Jpq        = TinyDFT->Jpq;
     double *pqA        = TinyDFT->pqA;
     double *df_tensor  = TinyDFT->df_tensor;
     // df_tensor(i, j, k) = dot(pqA(i, j, 1:df_nbf), Jpq_invsqrt(1:df_nbf, k))
-    cblas_dgemm(
-        CblasRowMajor, CblasNoTrans, CblasNoTrans, bf_pair_cnt, df_nbf, df_nbf,
-        1.0, pqA, df_nbf, Jpq, df_nbf, 0.0, df_tensor, df_nbf
-    );
+    if (df_save_mem == 0)
+    {
+        cblas_dgemm(
+            CblasRowMajor, CblasNoTrans, CblasNoTrans, bf_pair_cnt, df_nbf, df_nbf,
+            1.0, pqA, df_nbf, Jpq, df_nbf, 0.0, df_tensor, df_nbf
+        );
+    } else {
+        int row_blksize = 8192;
+        double *pqA_block  = (double*) malloc(sizeof(double) * row_blksize * df_nbf);
+        assert(pqA_block != NULL);
+        // df_tensor(i, j, k) = dot(pqA(i, j, 1:df_nbf), Jpq_invsqrt(1:df_nbf, k))
+        for (int srow = 0; srow < bf_pair_cnt; srow += row_blksize)
+        {
+            double *pqA_ptr = pqA + srow * df_nbf;
+            int nrow = (bf_pair_cnt - srow < row_blksize) ? (bf_pair_cnt - srow) : row_blksize;
+            #pragma omp parallel for schedule(static)
+            for (int i = 0; i < nrow * df_nbf; i++)
+                pqA_block[i] = pqA_ptr[i];
+            cblas_dgemm(
+                CblasRowMajor, CblasNoTrans, CblasNoTrans, nrow, df_nbf, df_nbf,
+                1.0, pqA_block, df_nbf, Jpq, df_nbf, 0.0, pqA_ptr, df_nbf
+            );
+        }
+        free(pqA_block);
+        TinyDFT->pqA = NULL;
+    }
     et = get_wtime_sec();
     printf("* build DF tensor   : %.3lf (s)\n", et - st);
 
@@ -496,11 +528,11 @@ static void TinyDFT_build_DF_tensor(TinyDFT_t TinyDFT)
 }
 
 // Set up density fitting
-void TinyDFT_setup_DF(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname)
+void TinyDFT_setup_DF(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname, const int save_mem)
 {
     assert(TinyDFT != NULL);
     
-    TinyDFT_load_DF_basis(TinyDFT, df_bas_fname, xyz_fname);
+    TinyDFT_load_DF_basis(TinyDFT, df_bas_fname, xyz_fname, save_mem);
     
     TinyDFT_init_batch_dgemm(TinyDFT);
     

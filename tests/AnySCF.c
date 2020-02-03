@@ -210,7 +210,14 @@ int main(int argc, char **argv)
             return 255;
         }
         use_DF = 1;
-        TinyDFT_setup_DF(TinyDFT, argv[6], argv[2]);
+        // If we don't need DF for K build, reduce memory usage in DF, only DF tensor build
+        // will become slower; otherwise, use more memory in DF for better K build performance
+        if (K_op == 1)
+        {
+            TinyDFT_setup_DF(TinyDFT, argv[6], argv[2], 0);
+        } else {
+            TinyDFT_setup_DF(TinyDFT, argv[6], argv[2], 1);
+        }
         TinyDFT_build_Cocc_from_Dmat(TinyDFT, TinyDFT->D_mat, TinyDFT->Cocc_mat);
     }
     

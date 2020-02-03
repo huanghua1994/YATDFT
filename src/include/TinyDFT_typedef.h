@@ -132,6 +132,7 @@ struct TinyDFT_struct
     double *Cocc_mat;       // Factor of density matrix
 
     // Tensors and matrices used only in build_JKDF
+    int    df_save_mem;
     int    mat_K_BS;
     int    mat_K_ntile;
     int    *mat_K_group_size;

@@ -242,6 +242,7 @@ static void TinyDFT_build_Kmat_DF(TinyDFT_t TinyDFT, const double *Cocc_mat, dou
 {
     int    nbf             = TinyDFT->nbf;
     int    df_nbf          = TinyDFT->df_nbf;
+    int    df_save_mem     = TinyDFT->df_save_mem;
     int    n_occ           = TinyDFT->n_occ;
     int    ngroups_temp_K  = nbf;
     int    bf_pair_cnt     = TinyDFT->bf_mask_displs[nbf];
@@ -253,56 +254,56 @@ static void TinyDFT_build_Kmat_DF(TinyDFT_t TinyDFT, const double *Cocc_mat, dou
     
     double t0, t1, t2;
     
-    t0 = get_wtime_sec();
-    
     // Construct temporary tensor for K matrix
     // Formula: temp_K(i, s, p) = dot(Cocc_mat(1:nbf, s), df_tensor(i, 1:nbf, p))
-    TinyDFT_set_batch_dgemm_temp_K(TinyDFT);
-    #pragma omp parallel for schedule(dynamic)
-    for (int i = 0; i < bf_pair_cnt; i++)
+    t0 = get_wtime_sec();
+    if (df_save_mem == 0)
     {
-        int j = bf_pair_j[i];
-        size_t Cocc_tmp_offset = (size_t) i * (size_t) df_nbf;
-        size_t Cocc_mat_offset = (size_t) j * (size_t) n_occ;
-        double *Cocc_tmp_ptr = Cocc_tmp + Cocc_tmp_offset;
-        const double *Cocc_mat_ptr = Cocc_mat + Cocc_mat_offset;
-        memcpy(Cocc_tmp_ptr, Cocc_mat_ptr, DBL_SIZE * n_occ);
-    }
-    cblas_dgemm_batch(
-        CblasRowMajor, TinyDFT->mat_K_transa, TinyDFT->mat_K_transb,
-        TinyDFT->mat_K_m, TinyDFT->mat_K_n, TinyDFT->mat_K_k,
-        TinyDFT->mat_K_alpha,  
-        (const double **) TinyDFT->mat_K_a, TinyDFT->mat_K_lda,
-        (const double **) TinyDFT->mat_K_b, TinyDFT->mat_K_ldb,
-        TinyDFT->mat_K_beta,
-        TinyDFT->mat_K_c, TinyDFT->mat_K_ldc,
-        ngroups_temp_K, TinyDFT->mat_K_group_size
-    );
-    /*
-    double *A_ptr  = TinyDFT->Cocc_mat;
-    double *temp_A = TinyDFT->tmp_mat;
-    for (int i = 0; i < nbf; i++)
-    {
-        size_t offset_c = (size_t) i * (size_t) n_occ * (size_t) df_nbf;
-        double *C_ptr = temp_K + offset_c;
-        
-        int j_idx_spos = bf_mask_displs[i];
-        int j_idx_epos = bf_mask_displs[i + 1];
-        for (int j_idx = j_idx_spos; j_idx < j_idx_epos; j_idx++)
+        TinyDFT_set_batch_dgemm_temp_K(TinyDFT);
+        #pragma omp parallel for schedule(dynamic)
+        for (int i = 0; i < bf_pair_cnt; i++)
         {
-            int j = bf_pair_j[j_idx];
-            int cnt = j_idx - j_idx_spos;
-            memcpy(temp_A + cnt * n_occ,  A_ptr + j * n_occ,  DBL_SIZE * n_occ);
+            int j = bf_pair_j[i];
+            size_t Cocc_tmp_offset = (size_t) i * (size_t) df_nbf;
+            size_t Cocc_mat_offset = (size_t) j * (size_t) n_occ;
+            double *Cocc_tmp_ptr = Cocc_tmp + Cocc_tmp_offset;
+            const double *Cocc_mat_ptr = Cocc_mat + Cocc_mat_offset;
+            memcpy(Cocc_tmp_ptr, Cocc_mat_ptr, DBL_SIZE * n_occ);
         }
-        
-        int ncols = j_idx_epos - j_idx_spos;
-        cblas_dgemm(
-            CblasRowMajor, CblasTrans, CblasNoTrans, n_occ, df_nbf, ncols,
-            1.0, temp_A, n_occ, df_tensor + j_idx_spos * df_nbf, df_nbf, 0.0, C_ptr, df_nbf
+        cblas_dgemm_batch(
+            CblasRowMajor, TinyDFT->mat_K_transa, TinyDFT->mat_K_transb,
+            TinyDFT->mat_K_m, TinyDFT->mat_K_n, TinyDFT->mat_K_k,
+            TinyDFT->mat_K_alpha,  
+            (const double **) TinyDFT->mat_K_a, TinyDFT->mat_K_lda,
+            (const double **) TinyDFT->mat_K_b, TinyDFT->mat_K_ldb,
+            TinyDFT->mat_K_beta,
+            TinyDFT->mat_K_c, TinyDFT->mat_K_ldc,
+            ngroups_temp_K, TinyDFT->mat_K_group_size
         );
-    }
-    */
-    
+    } else {
+        double *A_ptr  = TinyDFT->Cocc_mat;
+        double *temp_A = TinyDFT->tmp_mat;
+        for (int i = 0; i < nbf; i++)
+        {
+            size_t offset_c = (size_t) i * (size_t) n_occ * (size_t) df_nbf;
+            double *C_ptr = temp_K + offset_c;
+            
+            int j_idx_spos = bf_mask_displs[i];
+            int j_idx_epos = bf_mask_displs[i + 1];
+            for (int j_idx = j_idx_spos; j_idx < j_idx_epos; j_idx++)
+            {
+                int j = bf_pair_j[j_idx];
+                int cnt = j_idx - j_idx_spos;
+                memcpy(temp_A + cnt * n_occ,  A_ptr + j * n_occ,  DBL_SIZE * n_occ);
+            }
+            
+            int ncols = j_idx_epos - j_idx_spos;
+            cblas_dgemm(
+                CblasRowMajor, CblasTrans, CblasNoTrans, n_occ, df_nbf, ncols,
+                1.0, temp_A, n_occ, df_tensor + j_idx_spos * df_nbf, df_nbf, 0.0, C_ptr, df_nbf
+            );
+        }
+    }  // End of "if (df_save_mem == 0)"
     t1 = get_wtime_sec();
 
     // Build K matrix
@@ -368,6 +369,18 @@ void TinyDFT_build_JKmat_DF(TinyDFT_t TinyDFT, const double *D_mat, const double
     
     if (K_mat != NULL)
     {
+        if (TinyDFT->temp_K == NULL)
+        {
+            size_t temp_K_msize = (size_t) TinyDFT->df_nbf * (size_t) TinyDFT->n_occ * (size_t) TinyDFT->nbf;
+            temp_K_msize *= DBL_SIZE;
+            st = get_wtime_sec();
+            TinyDFT->temp_K = (double*) ALIGN64B_MALLOC(temp_K_msize);
+            assert(TinyDFT->temp_K != NULL);
+            et = get_wtime_sec();
+            TinyDFT->mem_size += (double) temp_K_msize;
+            printf("Allocate auxiliary tensor for density fitting K matrix build : %.3lf (s)\n", et - st);
+        }
+        
         TinyDFT_build_Kmat_DF(TinyDFT, Cocc_mat, K_mat, &temp_K_t, &K_mat_t);
         st = get_wtime_sec();
         #pragma omp for schedule(dynamic)
@@ -387,3 +400,4 @@ void TinyDFT_build_JKmat_DF(TinyDFT_t TinyDFT, const double *D_mat, const double
         );
     }
 }
+
