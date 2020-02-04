@@ -503,12 +503,14 @@ static void TinyDFT_build_DF_tensor(TinyDFT_t TinyDFT)
         );
     } else {
         int row_blksize = 8192;
-        double *pqA_block  = (double*) malloc(sizeof(double) * row_blksize * df_nbf);
+        size_t pqA_blk_msize = sizeof(double) * (size_t) row_blksize * (size_t) df_nbf;
+        double *pqA_block  = (double*) malloc(pqA_blk_msize);
         assert(pqA_block != NULL);
         // df_tensor(i, j, k) = dot(pqA(i, j, 1:df_nbf), Jpq_invsqrt(1:df_nbf, k))
         for (int srow = 0; srow < bf_pair_cnt; srow += row_blksize)
         {
-            double *pqA_ptr = pqA + srow * df_nbf;
+            size_t pqA_offset = (size_t) srow * (size_t) df_nbf;
+            double *pqA_ptr = pqA + pqA_offset;
             int nrow = (bf_pair_cnt - srow < row_blksize) ? (bf_pair_cnt - srow) : row_blksize;
             #pragma omp parallel for schedule(static)
             for (int i = 0; i < nrow * df_nbf; i++)

@@ -298,9 +298,11 @@ static void TinyDFT_build_Kmat_DF(TinyDFT_t TinyDFT, const double *Cocc_mat, dou
             }
             
             int ncols = j_idx_epos - j_idx_spos;
+            size_t df_tensor_offset = (size_t) j_idx_spos * (size_t) df_nbf;
+            double *df_tensor_ptr = df_tensor + df_tensor_offset;
             cblas_dgemm(
                 CblasRowMajor, CblasTrans, CblasNoTrans, n_occ, df_nbf, ncols,
-                1.0, temp_A, n_occ, df_tensor + j_idx_spos * df_nbf, df_nbf, 0.0, C_ptr, df_nbf
+                1.0, temp_A, n_occ, df_tensor_ptr, df_nbf, 0.0, C_ptr, df_nbf
             );
         }
     }  // End of "if (df_save_mem == 0)"
