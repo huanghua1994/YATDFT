@@ -145,7 +145,6 @@ void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double pri
     
     double workmem_MB = s->workmem_per_thread * 64 * sizeof(double) / 1048576.0;
     double outmem_MB  = s->outmem_per_thread  * 64 * sizeof(double) / 1048576.0;
-    double shell_mem_MB     = s->shell_memsize     / 1048576.0;
     double shellpair_mem_MB = s->shellpair_memsize / 1048576.0;
     double stat_info_mem_MB = stat_info_size * 6   / 1048576.0;
     double Simint_mem_MB = workmem_MB + outmem_MB + outmem_MB + shellpair_mem_MB + stat_info_mem_MB;

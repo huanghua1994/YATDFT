@@ -1,22 +1,41 @@
 CC  = icc
-AR  = xiar rcs
 LIB = libYATDFT.a
 
-USE_LIBXC = 0
+USE_MKL      = 1
+USE_OPENBLAS = 0
+USE_LIBXC    = 0
 
-BLAS_LIB       = -mkl=parallel
-SIMINT_INCDIR  = /home/mkurisu/Workspace/simint/build-avx/install/include
-LIBXC_INCDIR   = /home/mkurisu/Workspace/libxc/install/include
+SIMINT_INSTALL_DIR   = /home/mkurisu/Workspace/simint/build-avx/install
+LIBXC_INSTALL_DIR    = /home/mkurisu/Workspace/libxc/install
+OPENBLAS_INSTALL_DIR = /home/mkurisu/Workspace/OpenBLAS-0.3.8/install
 
 DEFS    = -D__ALIGNLEN__=64
-INCS    = -I./include -I$(SIMINT_INCDIR)
+INCS    = -I./include -I$(SIMINT_INSTALL_DIR)/include
+CFLAGS  = -Wall -g -O3 -std=gnu99 $(DEFS)
 
-CFLAGS  = -Wall -g -O3 -qopenmp -std=gnu99 -xHost $(DEFS) $(BLAS_LIB)
-LDFLAGS = -lpthread -qopenmp $(BLAS_LIB)
+ifeq ($(CC), icc)
+AR      = xiar rcs
+CFLAGS += -qopenmp -xHost
+endif
+
+ifeq ($(CC), gcc)
+AR      = ar rcs
+CFLAGS += -fopenmp -march=native -Wno-unused-result -Wno-unused-function
+endif
+
+ifeq ($(USE_MKL), 1)
+DEFS   += -DUSE_MKL
+CFLAGS += -mkl
+endif
+
+ifeq ($(USE_OPENBLAS), 1)
+DEFS   += -DUSE_OPENBLAS
+INCS   += -I$(OPENBLAS_INSTALL_DIR)/include
+endif
 
 ifeq ($(USE_LIBXC), 1)
-INCS   += -I$(LIBXC_INCDIR)
-CFLAGS += -DUSE_LIBXC
+INCS   += -I$(LIBXC_INSTALL_DIR)/include
+DEFS   += -DUSE_LIBXC
 endif
 
 OBJS =  CMS_basis.o CMS_simint.o utils.o ket_sp_list.o TinyDFT_typedef.o \

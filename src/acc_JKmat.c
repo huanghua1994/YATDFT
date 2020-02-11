@@ -44,7 +44,6 @@ static inline void update_global_JKblk(
 
 void acc_JKmat(ACC_JKMAT_IN_PARAM)
 {
-    int nbf           = TinyDFT->nbf;
     int nshell        = TinyDFT->nshell;
     int max_JKacc_buf = TinyDFT->max_JKacc_buf;
     int *shell_bf_num = TinyDFT->shell_bf_num;
@@ -116,15 +115,15 @@ void acc_JKmat(ACC_JKMAT_IN_PARAM)
                 // since it needs horizon reduction after the loop
                 for (int iQ = 0; iQ < dimQ; iQ++) 
                 {
-                    double I = ERI[Ibase + iQ];
+                    double eri = ERI[Ibase + iQ];
                     
-                    j_MN += D_PQ[iP_dimQ + iQ] * I;
-                    k_MP += D_NQ[iN_dimQ + iQ] * I;
-                    k_NP += D_MQ[iM_dimQ + iQ] * I;
+                    j_MN += D_PQ[iP_dimQ + iQ] * eri;
+                    k_MP += D_NQ[iN_dimQ + iQ] * eri;
+                    k_NP += D_MQ[iM_dimQ + iQ] * eri;
                     
-                    J_PQ_buf[iP_dimQ + iQ] +=  coef1_D_MN * I;
-                    K_MQ_buf[iM_dimQ + iQ] += ncoef4_D_NP * I;
-                    K_NQ_buf[iN_dimQ + iQ] += ncoef5_D_MP * I;
+                    J_PQ_buf[iP_dimQ + iQ] +=  coef1_D_MN * eri;
+                    K_MQ_buf[iM_dimQ + iQ] += ncoef4_D_NP * eri;
+                    K_NQ_buf[iN_dimQ + iQ] += ncoef5_D_MP * eri;
                 }
                 K_MP_buf[iM_dimP + iP] += coef[2] * k_MP;
                 K_NP_buf[iN_dimP + iP] += coef[3] * k_NP;
@@ -144,7 +143,6 @@ void acc_JKmat(ACC_JKMAT_IN_PARAM)
 
 void acc_Jmat(ACC_JKMAT_IN_PARAM)
 {
-    int nbf           = TinyDFT->nbf;
     int nshell        = TinyDFT->nshell;
     int max_JKacc_buf = TinyDFT->max_JKacc_buf;
     int *shell_bf_num = TinyDFT->shell_bf_num;
@@ -168,10 +166,10 @@ void acc_Jmat(ACC_JKMAT_IN_PARAM)
     
     double *D_MN = D_blk_mat + blk_mat_ptr[M * nshell + N];
     double *D_PQ = D_blk_mat + blk_mat_ptr[P * nshell + Q];
-    double *D_MP = D_blk_mat + blk_mat_ptr[M * nshell + P];
-    double *D_NP = D_blk_mat + blk_mat_ptr[N * nshell + P];
-    double *D_MQ = D_blk_mat + blk_mat_ptr[M * nshell + Q];
-    double *D_NQ = D_blk_mat + blk_mat_ptr[N * nshell + Q];
+    //double *D_MP = D_blk_mat + blk_mat_ptr[M * nshell + P];
+    //double *D_NP = D_blk_mat + blk_mat_ptr[N * nshell + P];
+    //double *D_MQ = D_blk_mat + blk_mat_ptr[M * nshell + Q];
+    //double *D_NQ = D_blk_mat + blk_mat_ptr[N * nshell + Q];
     
     // Set buffer pointer
     double *thread_buf = JKacc_buf + tid * max_JKacc_buf;
@@ -216,15 +214,15 @@ void acc_Jmat(ACC_JKMAT_IN_PARAM)
                 // since it needs horizon reduction after the loop
                 for (int iQ = 0; iQ < dimQ; iQ++) 
                 {
-                    double I = ERI[Ibase + iQ];
+                    double eri = ERI[Ibase + iQ];
                     
-                    j_MN += D_PQ[iP_dimQ + iQ] * I;
-                    //k_MP += D_NQ[iN_dimQ + iQ] * I;
-                    //k_NP += D_MQ[iM_dimQ + iQ] * I;
+                    j_MN += D_PQ[iP_dimQ + iQ] * eri;
+                    //k_MP += D_NQ[iN_dimQ + iQ] * eri;
+                    //k_NP += D_MQ[iM_dimQ + iQ] * eri;
                     
-                    J_PQ_buf[iP_dimQ + iQ] +=  coef1_D_MN * I;
-                    //K_MQ_buf[iM_dimQ + iQ] += ncoef4_D_NP * I;
-                    //K_NQ_buf[iN_dimQ + iQ] += ncoef5_D_MP * I;
+                    J_PQ_buf[iP_dimQ + iQ] +=  coef1_D_MN * eri;
+                    //K_MQ_buf[iM_dimQ + iQ] += ncoef4_D_NP * eri;
+                    //K_NQ_buf[iN_dimQ + iQ] += ncoef5_D_MP * eri;
                 }
                 //K_MP_buf[iM_dimP + iP] += coef[2] * k_MP;
                 //K_NP_buf[iN_dimP + iP] += coef[3] * k_NP;
@@ -244,7 +242,6 @@ void acc_Jmat(ACC_JKMAT_IN_PARAM)
 
 void acc_Kmat(ACC_JKMAT_IN_PARAM)
 {
-    int nbf           = TinyDFT->nbf;
     int nshell        = TinyDFT->nshell;
     int max_JKacc_buf = TinyDFT->max_JKacc_buf;
     int *shell_bf_num = TinyDFT->shell_bf_num;
@@ -266,8 +263,8 @@ void acc_Kmat(ACC_JKMAT_IN_PARAM)
     double *K_MQ = FM_strip_buf + (blk_mat_ptr[M * nshell + Q] - FM_strip_offset);
     double *K_NQ = FN_strip_buf + (blk_mat_ptr[N * nshell + Q] - FN_strip_offset);
     
-    double *D_MN = D_blk_mat + blk_mat_ptr[M * nshell + N];
-    double *D_PQ = D_blk_mat + blk_mat_ptr[P * nshell + Q];
+    //double *D_MN = D_blk_mat + blk_mat_ptr[M * nshell + N];
+    //double *D_PQ = D_blk_mat + blk_mat_ptr[P * nshell + Q];
     double *D_MP = D_blk_mat + blk_mat_ptr[M * nshell + P];
     double *D_NP = D_blk_mat + blk_mat_ptr[N * nshell + P];
     double *D_MQ = D_blk_mat + blk_mat_ptr[M * nshell + Q];
@@ -278,7 +275,7 @@ void acc_Kmat(ACC_JKMAT_IN_PARAM)
     int required_buf_size = (dimP + dimN + dimM) * dimQ + (dimP + dimN + dimM) * dimQ;
     assert(required_buf_size <= max_JKacc_buf);
     double *write_buf = thread_buf;
-    double *J_MN_buf = write_buf;  write_buf += dimM * dimN;
+    //double *J_MN_buf = write_buf;  write_buf += dimM * dimN;
     double *K_MP_buf = write_buf;  write_buf += dimM * dimP;
     double *K_NP_buf = write_buf;  write_buf += dimN * dimP;
     double *J_PQ_buf = write_buf;  write_buf += dimP * dimQ;
@@ -296,7 +293,7 @@ void acc_Kmat(ACC_JKMAT_IN_PARAM)
     
     for (int iM = 0; iM < dimM; iM++) 
     {
-        int iM_dimN = iM * dimN;
+        //int iM_dimN = iM * dimN;
         int iM_dimP = iM * dimP;
         int iM_dimQ = iM * dimQ;
         for (int iN = 0; iN < dimN; iN++) 
@@ -316,15 +313,15 @@ void acc_Kmat(ACC_JKMAT_IN_PARAM)
                 // since it needs horizon reduction after the loop
                 for (int iQ = 0; iQ < dimQ; iQ++) 
                 {
-                    double I = ERI[Ibase + iQ];
+                    double eri = ERI[Ibase + iQ];
                     
-                    //j_MN += D_PQ[iP_dimQ + iQ] * I;
-                    k_MP += D_NQ[iN_dimQ + iQ] * I;
-                    k_NP += D_MQ[iM_dimQ + iQ] * I;
+                    //j_MN += D_PQ[iP_dimQ + iQ] * eri;
+                    k_MP += D_NQ[iN_dimQ + iQ] * eri;
+                    k_NP += D_MQ[iM_dimQ + iQ] * eri;
                     
-                    //J_PQ_buf[iP_dimQ + iQ] +=  coef1_D_MN * I;
-                    K_MQ_buf[iM_dimQ + iQ] += ncoef4_D_NP * I;
-                    K_NQ_buf[iN_dimQ + iQ] += ncoef5_D_MP * I;
+                    //J_PQ_buf[iP_dimQ + iQ] +=  coef1_D_MN * eri;
+                    K_MQ_buf[iM_dimQ + iQ] += ncoef4_D_NP * eri;
+                    K_NQ_buf[iN_dimQ + iQ] += ncoef5_D_MP * eri;
                 }
                 K_MP_buf[iM_dimP + iP] += coef[2] * k_MP;
                 K_NP_buf[iN_dimP + iP] += coef[3] * k_NP;

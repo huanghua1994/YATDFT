@@ -5,7 +5,7 @@
 #include <xc.h>
 #endif
 
-#include <mkl.h>
+#include "linalg_lib_wrapper.h"
 
 #include "libCMS.h"
 

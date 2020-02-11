@@ -6,7 +6,7 @@
 #include <math.h>
 #include <omp.h>
 
-#include <mkl.h>
+#include "linalg_lib_wrapper.h"
 
 #include "utils.h"
 #include "TinyDFT_typedef.h"
@@ -23,7 +23,7 @@ void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat)
     int mat_size = TinyDFT->mat_size;
     BasisSet_t basis = TinyDFT->basis;
     
-    memset(D_mat, 0, DBL_SIZE * mat_size);
+    memset(D_mat, 0, DBL_MSIZE * mat_size);
     
     double *guess;
     int spos, epos, ldg;
@@ -32,7 +32,7 @@ void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat)
         CMS_getInitialGuess(basis, i, &guess, &spos, &epos);
         ldg = epos - spos + 1;
         double *D_mat_ptr = D_mat + spos * nbf + spos;
-        copy_dbl_mat_blk(D_mat_ptr, nbf, guess, ldg, ldg, ldg);
+        copy_dbl_mat_blk(guess, ldg, ldg, ldg, D_mat_ptr, nbf);
     }
     
     // Scaling the initial density matrix according to the charge and neutral
@@ -52,7 +52,7 @@ void TinyDFT_build_Cocc_from_Dmat(TinyDFT_t TinyDFT, const double *D_mat, double
     
     int rank;
     int *piv = (int*) malloc(sizeof(int) * nbf);
-    memcpy(Chol_mat, D_mat, DBL_SIZE * mat_size);
+    memcpy(Chol_mat, D_mat, DBL_MSIZE * mat_size);
     LAPACKE_dpstrf(LAPACK_ROW_MAJOR, 'L', nbf, Chol_mat, nbf, piv, &rank, 1e-12);
     
     if (rank < n_occ)
@@ -75,7 +75,7 @@ void TinyDFT_build_Cocc_from_Dmat(TinyDFT_t TinyDFT, const double *D_mat, double
     {
         double *Cocc_row = Cocc_mat + i * n_occ;
         double *Chol_row = Chol_mat + i * nbf;
-        memcpy(Cocc_row, Chol_row, DBL_SIZE * n_occ);
+        memcpy(Cocc_row, Chol_row, DBL_MSIZE * n_occ);
     }
     
     free(piv);
@@ -93,7 +93,7 @@ static void quickSort(double *eigval, int *ev_idx, int l, int r)
         {
             iswap     = ev_idx[i];
             ev_idx[i] = ev_idx[j];
-            ev_idx[j] = ev_idx[i];
+            ev_idx[j] = iswap;
             
             dswap     = eigval[i];
             eigval[i] = eigval[j];
@@ -116,7 +116,7 @@ void TinyDFT_build_Dmat_eig(TinyDFT_t TinyDFT, const double *F_mat, const double
     double *tmp_mat  = TinyDFT->tmp_mat;
 
     // Notice: here F_mat is already = X^T * F * X
-    memcpy(tmp_mat, F_mat, DBL_SIZE * TinyDFT->mat_size);
+    memcpy(tmp_mat, F_mat, DBL_MSIZE * mat_size);
     
     // Diagonalize F = C0^T * epsilon * C0, and C = X * C0 
     // [C0, E] = eig(F1), now C0 is stored in tmp_mat

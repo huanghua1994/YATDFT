@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <omp.h>
 
-#include <mkl.h>
+#include "linalg_lib_wrapper.h"
 
 #include "TinyDFT_typedef.h"
 #include "CDIIS.h"
@@ -21,7 +21,7 @@ void TinyDFT_CDIIS(TinyDFT_t TinyDFT, const double *X_mat, const double *S_mat, 
     double *DIIS_rhs = TinyDFT->DIIS_rhs;
     double *tmp_mat  = TinyDFT->tmp_mat;
     
-    int mat_msize = DBL_SIZE * mat_size;
+    int mat_msize = DBL_MSIZE * mat_size;
     int ldB = MAX_DIIS + 1;
     
     if (TinyDFT->iter <= 1)
@@ -89,7 +89,7 @@ void TinyDFT_CDIIS(TinyDFT_t TinyDFT, const double *X_mat, const double *S_mat, 
     // B(i, j) = R(:, i) * R(:, j)
     // DIIS_rhs is not used yet, use it to store dot product results
     double *DIIS_dot = DIIS_rhs; 
-    memset(DIIS_dot, 0, DBL_SIZE * (MAX_DIIS + 1));
+    memset(DIIS_dot, 0, DBL_MSIZE * (MAX_DIIS + 1));
     memcpy(R_mat + mat_size * DIIS_idx, tmp_mat, mat_msize);
     double *Ri = R_mat + mat_size * DIIS_idx;
     for (int j = 0; j < TinyDFT->DIIS_len; j++)
@@ -132,10 +132,10 @@ void TinyDFT_CDIIS(TinyDFT_t TinyDFT, const double *X_mat, const double *S_mat, 
     memcpy(F0_mat + mat_size * DIIS_idx, F_mat, mat_msize);
     
     // Solve the linear system 
-    memset(DIIS_rhs, 0, DBL_SIZE * (MAX_DIIS + 1));
+    memset(DIIS_rhs, 0, DBL_MSIZE * (MAX_DIIS + 1));
     DIIS_rhs[TinyDFT->DIIS_len] = -1;
     // Copy B_mat to tmp_mat, since LAPACKE_dgesv will overwrite the input matrix
-    memcpy(tmp_mat, B_mat, DBL_SIZE * ldB * ldB);  
+    memcpy(tmp_mat, B_mat, DBL_MSIZE * ldB * ldB);  
     LAPACKE_dgesv(LAPACK_ROW_MAJOR, TinyDFT->DIIS_len + 1, 1, tmp_mat, ldB, ipiv, DIIS_rhs, 1);
     
     // Form new X^T * F * X

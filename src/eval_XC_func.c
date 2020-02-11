@@ -315,8 +315,6 @@ static void eval_GGA_exc_vxc_C_PBE(
         double inv_rho2 = inv_rho  * inv_rho;
         double rho_n7_3 = rho_n1_3 * inv_rho2;
         double inv_rho3 = inv_rho2 * inv_rho;
-        double rho_2    = rho[i] * rho[i];
-        double rho_4    = rho_2  * rho_2;
         
         double t7  = t6 * rho_n4_3;
         double t10 = t124 * rho_n1_3;
@@ -386,14 +384,11 @@ static void eval_GGA_exc_vxc_C_LYP(
     double *exc, double *vrho, double *vsigma
 )
 {
-    const double M_CBRT2 = 1.25992104989487316476721060727;
     const double M_CBRT3 = 1.44224957030740838232163831078;
-    const double M_CBRT4 = 1.58740105196819947475170563927;
     const double A       = 0.04918;
     const double B       = 0.132;
     const double c       = 0.2533;
     const double d       = 0.349;
-    const double PI_N1_3 = 0.68278406325529568146702083315;  // cbrt(1.0 / M_PI)
     
     double t55    = B * c;
     double t28    = M_PI * M_PI;
@@ -411,7 +406,6 @@ static void eval_GGA_exc_vxc_C_LYP(
     for (int i = 0; i < npt; i++)
     {
         double rho_1_3  = cbrt(rho[i]);
-        double rho_2_3  = rho_1_3 * rho_1_3;
         double rho_n1_3 = 1.0 / rho_1_3;
         double rho_n2_3 = rho_n1_3 * rho_n1_3;
         double inv_rho  = rho_n1_3 * rho_n2_3;

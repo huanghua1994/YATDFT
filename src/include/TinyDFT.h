@@ -19,5 +19,7 @@
 
 #include "build_JKmat_DF.h"
 
+#include "linalg_lib_wrapper.h"
+
 #endif
 
