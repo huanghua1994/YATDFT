@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <omp.h>
 
-#include <mkl.h>
+#include "linalg_lib_wrapper.h"
 
 #include "utils.h"
 #include "TinyDFT_typedef.h"
@@ -39,7 +39,6 @@ static void TinyDFT_build_Jmat_DF(TinyDFT_t TinyDFT, const double *D_mat, double
     int    df_nbf          = TinyDFT->df_nbf;
     int    df_nbf_16       = TinyDFT->df_nbf_16;
     int    nthread         = TinyDFT->nthread;
-    int    *bf_pair_mask   = TinyDFT->bf_pair_mask;
     int    *bf_pair_j      = TinyDFT->bf_pair_j;
     int    *bf_pair_diag   = TinyDFT->bf_pair_diag;
     int    *bf_mask_displs = TinyDFT->bf_mask_displs;
@@ -235,6 +234,49 @@ static void TinyDFT_set_batch_dgemm_K(TinyDFT_t TinyDFT, double *K_mat)
     }
 }
 
+#ifndef USE_MKL
+#warning cblas_dgemm_batch() is not available in your BLAS library, will use cblas_dgemm to simulate it. 
+void cblas_dgemm_batch(
+    const CBLAS_LAYOUT Layout, 
+    const CBLAS_TRANSPOSE *transa_array, 
+    const CBLAS_TRANSPOSE *transb_array, 
+    const int *m_array, const int *n_array, const int *k_array, 
+    const double *alpha_array, 
+    const double **a_array, const int *lda_array, 
+    const double **b_array, const int *ldb_array, 
+    const double *beta_array, 
+    double **c_array, const int *ldc_array, 
+    const int group_count, const int *group_size
+)
+{
+    int idx = 0;
+    for (int i = 0; i < group_count; i++)
+    {
+        const CBLAS_TRANSPOSE transa_i = transa_array[i];
+        const CBLAS_TRANSPOSE transb_i = transb_array[i];
+        const int m_i = m_array[i];
+        const int n_i = n_array[i];
+        const int k_i = k_array[i];
+        const int lda_i = lda_array[i];
+        const int ldb_i = ldb_array[i];
+        const int ldc_i = ldc_array[i];
+        const double alpha_i = alpha_array[i];
+        const double beta_i  = beta_array[i];
+        for (int j = 0; j < group_size[i]; j++)
+        {
+            const double *a_idx = a_array[idx + j];
+            const double *b_idx = b_array[idx + j];
+            double *c_idx = c_array[idx + j];
+            cblas_dgemm(
+                Layout, transa_i, transb_i, m_i, n_i, k_i,
+                alpha_i, a_idx, lda_i, b_idx, ldb_i, beta_i, c_idx, ldc_i
+            );
+        }
+        idx += group_size[i];
+    }
+}
+#endif
+
 // Build temporary tensor for K matrix and form K matrix using Cocc matrix
 // High flop-per-byte ratio: access: nbf * df_nbf * (nbf + n_occ) , compute: nbf^2 * df_nbf * n_occ
 // Note: the K_mat is not completed, the symmetrizing is done later
@@ -268,7 +310,7 @@ static void TinyDFT_build_Kmat_DF(TinyDFT_t TinyDFT, const double *Cocc_mat, dou
             size_t Cocc_mat_offset = (size_t) j * (size_t) n_occ;
             double *Cocc_tmp_ptr = Cocc_tmp + Cocc_tmp_offset;
             const double *Cocc_mat_ptr = Cocc_mat + Cocc_mat_offset;
-            memcpy(Cocc_tmp_ptr, Cocc_mat_ptr, DBL_SIZE * n_occ);
+            memcpy(Cocc_tmp_ptr, Cocc_mat_ptr, DBL_MSIZE * n_occ);
         }
         cblas_dgemm_batch(
             CblasRowMajor, TinyDFT->mat_K_transa, TinyDFT->mat_K_transb,
@@ -294,7 +336,7 @@ static void TinyDFT_build_Kmat_DF(TinyDFT_t TinyDFT, const double *Cocc_mat, dou
             {
                 int j = bf_pair_j[j_idx];
                 int cnt = j_idx - j_idx_spos;
-                memcpy(temp_A + cnt * n_occ,  A_ptr + j * n_occ,  DBL_SIZE * n_occ);
+                memcpy(temp_A + cnt * n_occ,  A_ptr + j * n_occ,  DBL_MSIZE * n_occ);
             }
             
             int ncols = j_idx_epos - j_idx_spos;
@@ -374,9 +416,9 @@ void TinyDFT_build_JKmat_DF(TinyDFT_t TinyDFT, const double *D_mat, const double
         if (TinyDFT->temp_K == NULL)
         {
             size_t temp_K_msize = (size_t) TinyDFT->df_nbf * (size_t) TinyDFT->n_occ * (size_t) TinyDFT->nbf;
-            temp_K_msize *= DBL_SIZE;
+            temp_K_msize *= DBL_MSIZE;
             st = get_wtime_sec();
-            TinyDFT->temp_K = (double*) ALIGN64B_MALLOC(temp_K_msize);
+            TinyDFT->temp_K = (double*) malloc_aligned(temp_K_msize, 64);
             assert(TinyDFT->temp_K != NULL);
             et = get_wtime_sec();
             TinyDFT->mem_size += (double) temp_K_msize;

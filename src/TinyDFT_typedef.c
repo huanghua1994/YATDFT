@@ -8,8 +8,6 @@
 #include <time.h>
 #include <omp.h>
 
-#include <mkl.h>
-
 #ifdef USE_LIBXC
 #include <xc.h>
 #endif
@@ -73,7 +71,6 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     printf("    charge          = %d\n", TinyDFT->charge);
     printf("    electrons       = %d\n", TinyDFT->electron);
     int nthread      = TinyDFT->nthread;
-    int natom        = TinyDFT->natom;
     int nshell       = TinyDFT->nshell;
     int nbf          = TinyDFT->nbf;
     int n_occ        = TinyDFT->n_occ;
@@ -82,21 +79,21 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     
     // Allocate memory for ERI info arrays for direct approach
     CMS_Simint_init(TinyDFT->basis, &(TinyDFT->simint), nthread, TinyDFT->prim_scrtol);
-    TinyDFT->valid_sp_lid   = (int*)    ALIGN64B_MALLOC(INT_SIZE * num_valid_sp);
-    TinyDFT->valid_sp_rid   = (int*)    ALIGN64B_MALLOC(INT_SIZE * num_valid_sp);
-    TinyDFT->shell_bf_sind  = (int*)    ALIGN64B_MALLOC(INT_SIZE * (nshell + 1));
-    TinyDFT->shell_bf_num   = (int*)    ALIGN64B_MALLOC(INT_SIZE * nshell);
-    TinyDFT->sp_scrval      = (double*) ALIGN64B_MALLOC(DBL_SIZE * num_total_sp);
-    TinyDFT->bf_pair_scrval = (double*) ALIGN64B_MALLOC(DBL_SIZE * nbf * nbf);
+    TinyDFT->valid_sp_lid   = (int*)    malloc_aligned(INT_MSIZE * num_valid_sp, 64);
+    TinyDFT->valid_sp_rid   = (int*)    malloc_aligned(INT_MSIZE * num_valid_sp, 64);
+    TinyDFT->shell_bf_sind  = (int*)    malloc_aligned(INT_MSIZE * (nshell + 1), 64);
+    TinyDFT->shell_bf_num   = (int*)    malloc_aligned(INT_MSIZE * nshell,       64);
+    TinyDFT->sp_scrval      = (double*) malloc_aligned(DBL_MSIZE * num_total_sp, 64);
+    TinyDFT->bf_pair_scrval = (double*) malloc_aligned(DBL_MSIZE * nbf * nbf,    64);
     assert(TinyDFT->valid_sp_lid  != NULL);
     assert(TinyDFT->valid_sp_rid  != NULL);
     assert(TinyDFT->shell_bf_sind != NULL);
     assert(TinyDFT->shell_bf_num  != NULL);
     assert(TinyDFT->sp_scrval     != NULL);
-    TinyDFT->mem_size += (double) (INT_SIZE * 2 * TinyDFT->num_valid_sp);
-    TinyDFT->mem_size += (double) (INT_SIZE * (2 * nshell + 1));
-    TinyDFT->mem_size += (double) (DBL_SIZE * num_total_sp);
-    TinyDFT->mem_size += (double) (DBL_SIZE * nbf * nbf);
+    TinyDFT->mem_size += (double) (INT_MSIZE * 2 * TinyDFT->num_valid_sp);
+    TinyDFT->mem_size += (double) (INT_MSIZE * (2 * nshell + 1));
+    TinyDFT->mem_size += (double) (DBL_MSIZE * num_total_sp);
+    TinyDFT->mem_size += (double) (DBL_MSIZE * nbf * nbf);
     for (int i = 0; i < nshell; i++)
     {
         TinyDFT->shell_bf_sind[i] = CMS_getFuncStartInd(TinyDFT->basis, i);
@@ -126,20 +123,20 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->bf_center = NULL;
     
     // Allocate memory for matrices and arrays used only in build_HF_mat
-    size_t mat_msize          = DBL_SIZE * TinyDFT->mat_size;
-    size_t MN_strip_msize     = DBL_SIZE * TinyDFT->max_dim * nbf;
+    size_t mat_msize          = DBL_MSIZE * TinyDFT->mat_size;
+    size_t MN_strip_msize     = DBL_MSIZE * TinyDFT->max_dim * nbf;
     size_t max_buf_entry_size = TinyDFT->max_dim * TinyDFT->max_dim;
     size_t total_buf_size     = max_buf_entry_size * 6 * nthread;
     TinyDFT->max_JKacc_buf = max_buf_entry_size * 6;
-    TinyDFT->blk_mat_ptr   = (int*)    ALIGN64B_MALLOC(INT_SIZE * TinyDFT->num_total_sp);
-    TinyDFT->Mpair_flag    = (int*)    ALIGN64B_MALLOC(INT_SIZE * nshell * nthread);
-    TinyDFT->Npair_flag    = (int*)    ALIGN64B_MALLOC(INT_SIZE * nshell * nthread);
-    TinyDFT->J_blk_mat     = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->K_blk_mat     = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->D_blk_mat     = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->JKacc_buf     = (double*) ALIGN64B_MALLOC(DBL_SIZE * total_buf_size);
-    TinyDFT->FM_strip_buf  = (double*) ALIGN64B_MALLOC(MN_strip_msize * nthread);
-    TinyDFT->FN_strip_buf  = (double*) ALIGN64B_MALLOC(MN_strip_msize * nthread);
+    TinyDFT->blk_mat_ptr   = (int*)    malloc_aligned(INT_MSIZE * TinyDFT->num_total_sp, 64);
+    TinyDFT->Mpair_flag    = (int*)    malloc_aligned(INT_MSIZE * nshell * nthread,      64);
+    TinyDFT->Npair_flag    = (int*)    malloc_aligned(INT_MSIZE * nshell * nthread,      64);
+    TinyDFT->J_blk_mat     = (double*) malloc_aligned(mat_msize,                         64);
+    TinyDFT->K_blk_mat     = (double*) malloc_aligned(mat_msize,                         64);
+    TinyDFT->D_blk_mat     = (double*) malloc_aligned(mat_msize,                         64);
+    TinyDFT->JKacc_buf     = (double*) malloc_aligned(DBL_MSIZE * total_buf_size,        64);
+    TinyDFT->FM_strip_buf  = (double*) malloc_aligned(MN_strip_msize * nthread,          64);
+    TinyDFT->FN_strip_buf  = (double*) malloc_aligned(MN_strip_msize * nthread,          64);
     assert(TinyDFT->blk_mat_ptr  != NULL);
     assert(TinyDFT->Mpair_flag   != NULL);
     assert(TinyDFT->Npair_flag   != NULL);
@@ -149,11 +146,11 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     assert(TinyDFT->JKacc_buf    != NULL);
     assert(TinyDFT->FM_strip_buf != NULL);
     assert(TinyDFT->FN_strip_buf != NULL);
-    TinyDFT->mem_size += (double) (INT_SIZE * TinyDFT->num_total_sp);
-    TinyDFT->mem_size += (double) (2 * INT_SIZE * nshell * nthread);
+    TinyDFT->mem_size += (double) (INT_MSIZE * TinyDFT->num_total_sp);
+    TinyDFT->mem_size += (double) (2 * INT_MSIZE * nshell * nthread);
     TinyDFT->mem_size += (double) (3 * mat_msize);
     TinyDFT->mem_size += (double) (2 * MN_strip_msize * nthread);
-    TinyDFT->mem_size += (double) (DBL_SIZE * total_buf_size);
+    TinyDFT->mem_size += (double) (DBL_MSIZE * total_buf_size);
     int pos = 0, idx = 0;
     for (int i = 0; i < nshell; i++)
     {
@@ -176,26 +173,26 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->XC_workbuf = NULL;
     
     // Allocate memory for matrices used in multiple modules
-    TinyDFT->tmp_mat = (double*) ALIGN64B_MALLOC(mat_msize);
+    TinyDFT->tmp_mat = (double*) malloc_aligned(mat_msize, 64);
     assert(TinyDFT->tmp_mat != NULL);
     TinyDFT->mem_size += (double) (mat_msize);
     
     // Allocate memory for matrices and arrays used only in build_Dmat
-    TinyDFT->ev_idx = (int*)    ALIGN64B_MALLOC(INT_SIZE * nbf);
-    TinyDFT->eigval = (double*) ALIGN64B_MALLOC(DBL_SIZE * nbf);
+    TinyDFT->ev_idx = (int*)    malloc_aligned(INT_MSIZE * nbf, 64);
+    TinyDFT->eigval = (double*) malloc_aligned(DBL_MSIZE * nbf, 64);
     assert(TinyDFT->ev_idx != NULL);
     assert(TinyDFT->eigval != NULL);
-    TinyDFT->mem_size += (double) ((DBL_SIZE + INT_SIZE) * nbf);
+    TinyDFT->mem_size += (double) ((DBL_MSIZE + INT_MSIZE) * nbf);
     
     // Allocate memory for matrices and arrays used only in CDIIS
     int MAX_DIIS_1 = MAX_DIIS + 1;
-    size_t DIIS_row_msize = DBL_SIZE * MAX_DIIS_1;
-    TinyDFT->F0_mat    = (double*) ALIGN64B_MALLOC(mat_msize * MAX_DIIS);
-    TinyDFT->R_mat     = (double*) ALIGN64B_MALLOC(mat_msize * MAX_DIIS);
-    TinyDFT->B_mat     = (double*) ALIGN64B_MALLOC(DIIS_row_msize * MAX_DIIS_1);
-    TinyDFT->FDS_mat   = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->DIIS_rhs  = (double*) ALIGN64B_MALLOC(DIIS_row_msize);
-    TinyDFT->DIIS_ipiv = (int*)    ALIGN64B_MALLOC(INT_SIZE * MAX_DIIS_1);
+    size_t DIIS_row_msize = DBL_MSIZE * MAX_DIIS_1;
+    TinyDFT->F0_mat    = (double*) malloc_aligned(mat_msize * MAX_DIIS,        64);
+    TinyDFT->R_mat     = (double*) malloc_aligned(mat_msize * MAX_DIIS,        64);
+    TinyDFT->B_mat     = (double*) malloc_aligned(DIIS_row_msize * MAX_DIIS_1, 64);
+    TinyDFT->FDS_mat   = (double*) malloc_aligned(mat_msize,                   64);
+    TinyDFT->DIIS_rhs  = (double*) malloc_aligned(DIIS_row_msize,              64);
+    TinyDFT->DIIS_ipiv = (int*)    malloc_aligned(INT_MSIZE * MAX_DIIS_1,      64);
     assert(TinyDFT->F0_mat    != NULL);
     assert(TinyDFT->R_mat     != NULL);
     assert(TinyDFT->B_mat     != NULL);
@@ -203,7 +200,7 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     assert(TinyDFT->DIIS_ipiv != NULL);
     TinyDFT->mem_size += MAX_DIIS * 2 * (double) mat_msize;
     TinyDFT->mem_size += (double) DIIS_row_msize * (MAX_DIIS + 2);
-    TinyDFT->mem_size += (double) (INT_SIZE * MAX_DIIS_1);
+    TinyDFT->mem_size += (double) (INT_MSIZE * MAX_DIIS_1);
     TinyDFT->mem_size += (double) mat_msize;
     // Must initialize F0 and R as 0 
     memset(TinyDFT->F0_mat, 0, mat_msize * MAX_DIIS);
@@ -216,16 +213,16 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->DIIS_bmax    = -DBL_MAX;
 
     // Allocate memory for matrices and arrays used only in SCF iterations
-    TinyDFT->E_tol      = 1e-10;
-    TinyDFT->Hcore_mat  = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->S_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->X_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->J_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->K_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->XC_mat     = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->F_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->D_mat      = (double*) ALIGN64B_MALLOC(mat_msize);
-    TinyDFT->Cocc_mat   = (double*) ALIGN64B_MALLOC(DBL_SIZE * n_occ * nbf);
+    TinyDFT->E_tol     = 1e-10;
+    TinyDFT->Hcore_mat = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->S_mat     = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->X_mat     = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->J_mat     = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->K_mat     = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->XC_mat    = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->F_mat     = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->D_mat     = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->Cocc_mat  = (double*) malloc_aligned(DBL_MSIZE * n_occ * nbf, 64);
     assert(TinyDFT->Hcore_mat != NULL);
     assert(TinyDFT->S_mat     != NULL);
     assert(TinyDFT->X_mat     != NULL);
@@ -236,29 +233,29 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     assert(TinyDFT->D_mat     != NULL);
     assert(TinyDFT->Cocc_mat  != NULL);
     TinyDFT->mem_size += (double) (8 * mat_msize);
-    TinyDFT->mem_size += (double) (DBL_SIZE * n_occ * nbf);
-    memset(TinyDFT->Cocc_mat, 0, DBL_SIZE * n_occ * nbf);
+    TinyDFT->mem_size += (double) (DBL_MSIZE * n_occ * nbf);
+    memset(TinyDFT->Cocc_mat, 0, DBL_MSIZE * n_occ * nbf);
 
     // Tensors and matrices used only in build_JKDF will 
     // be allocated later if needed
-    TinyDFT->mat_K_m          = NULL;
-    TinyDFT->mat_K_n          = NULL;
-    TinyDFT->mat_K_k          = NULL;
-    TinyDFT->mat_K_lda        = NULL;
-    TinyDFT->mat_K_ldb        = NULL;
-    TinyDFT->mat_K_ldc        = NULL;
-    TinyDFT->mat_K_beta       = NULL;
-    TinyDFT->mat_K_alpha      = NULL;
-    TinyDFT->pqA              = NULL;
-    TinyDFT->Jpq              = NULL;
-    TinyDFT->df_tensor        = NULL;
-    TinyDFT->temp_J           = NULL;
-    TinyDFT->temp_K           = NULL;
-    TinyDFT->mat_K_a          = NULL;
-    TinyDFT->mat_K_b          = NULL;
-    TinyDFT->mat_K_c          = NULL;
-    TinyDFT->mat_K_transa     = NULL;
-    TinyDFT->mat_K_transb     = NULL;
+    TinyDFT->mat_K_m      = NULL;
+    TinyDFT->mat_K_n      = NULL;
+    TinyDFT->mat_K_k      = NULL;
+    TinyDFT->mat_K_lda    = NULL;
+    TinyDFT->mat_K_ldb    = NULL;
+    TinyDFT->mat_K_ldc    = NULL;
+    TinyDFT->mat_K_beta   = NULL;
+    TinyDFT->mat_K_alpha  = NULL;
+    TinyDFT->pqA          = NULL;
+    TinyDFT->Jpq          = NULL;
+    TinyDFT->df_tensor    = NULL;
+    TinyDFT->temp_J       = NULL;
+    TinyDFT->temp_K       = NULL;
+    TinyDFT->mat_K_a      = NULL;
+    TinyDFT->mat_K_b      = NULL;
+    TinyDFT->mat_K_c      = NULL;
+    TinyDFT->mat_K_transa = NULL;
+    TinyDFT->mat_K_transb = NULL;
 
     double et = get_wtime_sec();
     TinyDFT->init_time = et - st;
@@ -279,80 +276,80 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     printf("TinyDFT total memory usage = %.2lf MB\n", TinyDFT->mem_size / 1048576.0);
     
     // Free ERI info arrays for direct approach
-    ALIGN64B_FREE(TinyDFT->valid_sp_lid);
-    ALIGN64B_FREE(TinyDFT->valid_sp_rid);
-    ALIGN64B_FREE(TinyDFT->shell_bf_sind);
-    ALIGN64B_FREE(TinyDFT->shell_bf_num);
-    ALIGN64B_FREE(TinyDFT->sp_scrval);
-    ALIGN64B_FREE(TinyDFT->bf_pair_scrval);
+    free_aligned(TinyDFT->valid_sp_lid);
+    free_aligned(TinyDFT->valid_sp_rid);
+    free_aligned(TinyDFT->shell_bf_sind);
+    free_aligned(TinyDFT->shell_bf_num);
+    free_aligned(TinyDFT->sp_scrval);
+    free_aligned(TinyDFT->bf_pair_scrval);
     
     // Free ERI info arrays for density fitting
-    ALIGN64B_FREE(TinyDFT->df_shell_bf_sind);
-    ALIGN64B_FREE(TinyDFT->df_shell_bf_num);
-    ALIGN64B_FREE(TinyDFT->bf_pair_mask);
-    ALIGN64B_FREE(TinyDFT->bf_pair_j);
-    ALIGN64B_FREE(TinyDFT->bf_pair_diag);
-    ALIGN64B_FREE(TinyDFT->bf_mask_displs);
-    ALIGN64B_FREE(TinyDFT->df_sp_scrval);
+    free_aligned(TinyDFT->df_shell_bf_sind);
+    free_aligned(TinyDFT->df_shell_bf_num);
+    free_aligned(TinyDFT->bf_pair_mask);
+    free_aligned(TinyDFT->bf_pair_j);
+    free_aligned(TinyDFT->bf_pair_diag);
+    free_aligned(TinyDFT->bf_mask_displs);
+    free_aligned(TinyDFT->df_sp_scrval);
     
     // Free flattened Gaussian basis function and atom info used only 
     // in XC calculation
-    ALIGN64B_FREE(TinyDFT->atom_idx);
-    ALIGN64B_FREE(TinyDFT->bf_nprim);
-    ALIGN64B_FREE(TinyDFT->atom_xyz);
-    ALIGN64B_FREE(TinyDFT->bf_coef);
-    ALIGN64B_FREE(TinyDFT->bf_alpha);
-    ALIGN64B_FREE(TinyDFT->bf_exp);
-    ALIGN64B_FREE(TinyDFT->bf_center);
+    free_aligned(TinyDFT->atom_idx);
+    free_aligned(TinyDFT->bf_nprim);
+    free_aligned(TinyDFT->atom_xyz);
+    free_aligned(TinyDFT->bf_coef);
+    free_aligned(TinyDFT->bf_alpha);
+    free_aligned(TinyDFT->bf_exp);
+    free_aligned(TinyDFT->bf_center);
     
     // Free matrices and temporary arrays used only in build_HF_mat
-    ALIGN64B_FREE(TinyDFT->blk_mat_ptr);
-    ALIGN64B_FREE(TinyDFT->Mpair_flag);
-    ALIGN64B_FREE(TinyDFT->Npair_flag);
-    ALIGN64B_FREE(TinyDFT->J_blk_mat);
-    ALIGN64B_FREE(TinyDFT->K_blk_mat);
-    ALIGN64B_FREE(TinyDFT->D_blk_mat);
-    ALIGN64B_FREE(TinyDFT->JKacc_buf);
-    ALIGN64B_FREE(TinyDFT->FM_strip_buf);
-    ALIGN64B_FREE(TinyDFT->FN_strip_buf);
+    free_aligned(TinyDFT->blk_mat_ptr);
+    free_aligned(TinyDFT->Mpair_flag);
+    free_aligned(TinyDFT->Npair_flag);
+    free_aligned(TinyDFT->J_blk_mat);
+    free_aligned(TinyDFT->K_blk_mat);
+    free_aligned(TinyDFT->D_blk_mat);
+    free_aligned(TinyDFT->JKacc_buf);
+    free_aligned(TinyDFT->FM_strip_buf);
+    free_aligned(TinyDFT->FN_strip_buf);
     
     // Free matrices and arrays used in XC functional calculation
     free(TinyDFT->int_grid);
-    ALIGN64B_FREE(TinyDFT->phi);
-    ALIGN64B_FREE(TinyDFT->rho);
-    ALIGN64B_FREE(TinyDFT->exc);
-    ALIGN64B_FREE(TinyDFT->vxc);
-    ALIGN64B_FREE(TinyDFT->vsigma);
-    ALIGN64B_FREE(TinyDFT->XC_workbuf);
+    free_aligned(TinyDFT->phi);
+    free_aligned(TinyDFT->rho);
+    free_aligned(TinyDFT->exc);
+    free_aligned(TinyDFT->vxc);
+    free_aligned(TinyDFT->vsigma);
+    free_aligned(TinyDFT->XC_workbuf);
     #ifdef USE_LIBXC
     if (TinyDFT->xf_impl == 0) xc_func_end(&TinyDFT->libxc_xf);
     if (TinyDFT->cf_impl == 0) xc_func_end(&TinyDFT->libxc_cf);
     #endif
     
     // Free matrices used in multiple modules
-    ALIGN64B_FREE(TinyDFT->tmp_mat);
+    free_aligned(TinyDFT->tmp_mat);
     
     // Free matrices and arrays used only in build_Dmat
-    ALIGN64B_FREE(TinyDFT->ev_idx);
-    ALIGN64B_FREE(TinyDFT->eigval);
+    free_aligned(TinyDFT->ev_idx);
+    free_aligned(TinyDFT->eigval);
     
     // Free matrices and temporary arrays used only in CDIIS
-    ALIGN64B_FREE(TinyDFT->F0_mat);
-    ALIGN64B_FREE(TinyDFT->R_mat);
-    ALIGN64B_FREE(TinyDFT->B_mat);
-    ALIGN64B_FREE(TinyDFT->FDS_mat);
-    ALIGN64B_FREE(TinyDFT->DIIS_rhs);
-    ALIGN64B_FREE(TinyDFT->DIIS_ipiv);
+    free_aligned(TinyDFT->F0_mat);
+    free_aligned(TinyDFT->R_mat);
+    free_aligned(TinyDFT->B_mat);
+    free_aligned(TinyDFT->FDS_mat);
+    free_aligned(TinyDFT->DIIS_rhs);
+    free_aligned(TinyDFT->DIIS_ipiv);
     
     // Free matrices and temporary arrays used only in SCF
-    ALIGN64B_FREE(TinyDFT->Hcore_mat);
-    ALIGN64B_FREE(TinyDFT->S_mat);
-    ALIGN64B_FREE(TinyDFT->F_mat);
-    ALIGN64B_FREE(TinyDFT->D_mat);
-    ALIGN64B_FREE(TinyDFT->J_mat);
-    ALIGN64B_FREE(TinyDFT->K_mat);
-    ALIGN64B_FREE(TinyDFT->X_mat);
-    ALIGN64B_FREE(TinyDFT->Cocc_mat);
+    free_aligned(TinyDFT->Hcore_mat);
+    free_aligned(TinyDFT->S_mat);
+    free_aligned(TinyDFT->F_mat);
+    free_aligned(TinyDFT->D_mat);
+    free_aligned(TinyDFT->J_mat);
+    free_aligned(TinyDFT->K_mat);
+    free_aligned(TinyDFT->X_mat);
+    free_aligned(TinyDFT->Cocc_mat);
     
     // Free Tensors and matrices used only in build_JKDF
     free(TinyDFT->mat_K_m);
@@ -363,11 +360,11 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     free(TinyDFT->mat_K_ldc);
     free(TinyDFT->mat_K_beta);
     free(TinyDFT->mat_K_alpha);
-    ALIGN64B_FREE(TinyDFT->pqA);
-    ALIGN64B_FREE(TinyDFT->Jpq);
-    ALIGN64B_FREE(TinyDFT->df_tensor);
-    ALIGN64B_FREE(TinyDFT->temp_J);
-    ALIGN64B_FREE(TinyDFT->temp_K);
+    free_aligned(TinyDFT->pqA);
+    free_aligned(TinyDFT->Jpq);
+    free_aligned(TinyDFT->df_tensor);
+    free_aligned(TinyDFT->temp_J);
+    free_aligned(TinyDFT->temp_K);
     free(TinyDFT->mat_K_a);
     free(TinyDFT->mat_K_b);
     free(TinyDFT->mat_K_c);

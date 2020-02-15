@@ -11,8 +11,12 @@
 #include "CMS_config.h"
 #include "CMS_basis.h"
 
-#ifdef HAS_MALLOC_H
+// For _mm_malloc and _mm_free
+#if defined(__INTEL_COMPILER)
 #include <malloc.h>
+#endif
+#if defined(__GNUC__) || (__clang__)
+#include <mm_malloc.h>
 #endif
 
 #define ELEN         50
@@ -202,11 +206,7 @@ CMSStatus_t CMS_parse_molecule(BasisSet_t basis)
     basis->f_start_id = (uint32_t *)malloc (sizeof(uint32_t) * nshells);
     basis->f_end_id   = (uint32_t *)malloc (sizeof(uint32_t) * nshells);
     // shell centers
-#ifdef HAS_MALLOC_H
-    basis->xyz0 = (double *)memalign(32, sizeof(double) * nshells * 4);
-#else
     basis->xyz0 = (double *)ALIGNED_MALLOC(sizeof(double) * nshells * 4);
-#endif
     basis->nexp =     (uint32_t *)malloc(sizeof(uint32_t) * nshells); // number of primitives
     basis->cc =       (double **) malloc(sizeof(double *) * nshells); // contraction coefs
     basis->exp =      (double **) malloc(sizeof(double *) * nshells); // orbital exponents

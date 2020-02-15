@@ -28,13 +28,13 @@ static void TinyDFT_load_DF_basis(TinyDFT_t TinyDFT, char *df_bas_fname, char *x
     int nbf       = TinyDFT->nbf;
     int df_nshell = TinyDFT->df_nshell;
     int mat_size  = TinyDFT->mat_size;
-    TinyDFT->df_shell_bf_sind = (int*)    ALIGN64B_MALLOC(INT_SIZE * (df_nshell + 1));
-    TinyDFT->df_shell_bf_num  = (int*)    ALIGN64B_MALLOC(INT_SIZE * df_nshell);
-    TinyDFT->bf_pair_mask     = (int*)    ALIGN64B_MALLOC(INT_SIZE * mat_size);
-    TinyDFT->bf_pair_j        = (int*)    ALIGN64B_MALLOC(INT_SIZE * mat_size);
-    TinyDFT->bf_pair_diag     = (int*)    ALIGN64B_MALLOC(INT_SIZE * nbf);
-    TinyDFT->bf_mask_displs   = (int*)    ALIGN64B_MALLOC(INT_SIZE * (nbf + 1));
-    TinyDFT->df_sp_scrval     = (double*) ALIGN64B_MALLOC(DBL_SIZE * df_nshell);
+    TinyDFT->df_shell_bf_sind = (int*)    malloc_aligned(INT_MSIZE * (df_nshell + 1), 64);
+    TinyDFT->df_shell_bf_num  = (int*)    malloc_aligned(INT_MSIZE * df_nshell,       64);
+    TinyDFT->bf_pair_mask     = (int*)    malloc_aligned(INT_MSIZE * mat_size,        64);
+    TinyDFT->bf_pair_j        = (int*)    malloc_aligned(INT_MSIZE * mat_size,        64);
+    TinyDFT->bf_pair_diag     = (int*)    malloc_aligned(INT_MSIZE * nbf,             64);
+    TinyDFT->bf_mask_displs   = (int*)    malloc_aligned(INT_MSIZE * (nbf + 1),       64);
+    TinyDFT->df_sp_scrval     = (double*) malloc_aligned(DBL_MSIZE * df_nshell,       64);
     assert(TinyDFT->df_shell_bf_sind != NULL);
     assert(TinyDFT->df_shell_bf_num  != NULL);
     assert(TinyDFT->bf_pair_mask     != NULL);
@@ -42,10 +42,10 @@ static void TinyDFT_load_DF_basis(TinyDFT_t TinyDFT, char *df_bas_fname, char *x
     assert(TinyDFT->bf_pair_diag     != NULL);
     assert(TinyDFT->bf_mask_displs   != NULL);
     assert(TinyDFT->df_sp_scrval     != NULL);
-    TinyDFT->mem_size += (double) (INT_SIZE * (df_nshell * 2 + 1));
-    TinyDFT->mem_size += (double) (INT_SIZE * (nbf * 2 + 1));
-    TinyDFT->mem_size += (double) (INT_SIZE * 2 * mat_size);
-    TinyDFT->mem_size += (double) (DBL_SIZE * df_nshell);
+    TinyDFT->mem_size += (double) (INT_MSIZE * (df_nshell * 2 + 1));
+    TinyDFT->mem_size += (double) (INT_MSIZE * (nbf * 2 + 1));
+    TinyDFT->mem_size += (double) (INT_MSIZE * 2 * mat_size);
+    TinyDFT->mem_size += (double) (DBL_MSIZE * df_nshell);
     
     for (int i = 0; i < TinyDFT->df_nshell; i++)
     {
@@ -61,12 +61,12 @@ static void TinyDFT_load_DF_basis(TinyDFT_t TinyDFT, char *df_bas_fname, char *x
     size_t temp_J_msize = (size_t) df_nbf_16 * (size_t) nthread;
     size_t temp_K_msize = (size_t) df_nbf * (size_t) n_occ * (size_t) nbf;
     size_t df_mat_msize = (size_t) df_nbf * (size_t) df_nbf;
-    df_mat_msize *= DBL_SIZE;
-    temp_J_msize *= DBL_SIZE;
-    temp_K_msize *= DBL_SIZE;
-    TinyDFT->Jpq    = (double*) ALIGN64B_MALLOC(df_mat_msize);
-    TinyDFT->temp_J = (double*) ALIGN64B_MALLOC(temp_J_msize);
-    //TinyDFT->temp_K = (double*) ALIGN64B_MALLOC(temp_K_msize);
+    df_mat_msize *= DBL_MSIZE;
+    temp_J_msize *= DBL_MSIZE;
+    temp_K_msize *= DBL_MSIZE;
+    TinyDFT->Jpq    = (double*) malloc_aligned(df_mat_msize, 64);
+    TinyDFT->temp_J = (double*) malloc_aligned(temp_J_msize, 64);
+    //TinyDFT->temp_K = (double*) malloc_aligned(temp_K_msize, 64);
     TinyDFT->temp_K = NULL;   // Allocate it when needed
     assert(TinyDFT->Jpq    != NULL);
     assert(TinyDFT->temp_J != NULL);
@@ -83,7 +83,6 @@ static void TinyDFT_init_batch_dgemm(TinyDFT_t TinyDFT)
     #define DGEMM_BLK_SIZE 64
     
     int nbf      = TinyDFT->nbf;
-    int df_nbf   = TinyDFT->df_nbf;
     int mat_K_BS = nbf / 10;
     if (mat_K_BS < DGEMM_BLK_SIZE) mat_K_BS = DGEMM_BLK_SIZE;
     int nblock   = (nbf + mat_K_BS - 1) / mat_K_BS;
@@ -130,8 +129,8 @@ static void TinyDFT_init_batch_dgemm(TinyDFT_t TinyDFT)
     assert(TinyDFT->mat_K_ldb    != NULL);
     assert(TinyDFT->mat_K_ldc    != NULL);
     TinyDFT->mem_size += (double) (sizeof(CBLAS_TRANSPOSE) * nbf * 2);
-    TinyDFT->mem_size += (double) (INT_SIZE * nbf * 7);
-    TinyDFT->mem_size += (double) (DBL_SIZE * nbf * 5);
+    TinyDFT->mem_size += (double) (INT_MSIZE * nbf * 7);
+    TinyDFT->mem_size += (double) (DBL_MSIZE * nbf * 5);
 }
 
 static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
@@ -142,8 +141,6 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
     int    n_occ           = TinyDFT->n_occ;
     int    df_nbf          = TinyDFT->df_nbf;
     int    mat_size        = TinyDFT->mat_size;
-    int    num_total_sp    = TinyDFT->num_total_sp;
-    int    num_valid_sp    = TinyDFT->num_valid_sp;
     int    *bf_pair_mask   = TinyDFT->bf_pair_mask;
     int    *bf_pair_j      = TinyDFT->bf_pair_j;
     int    *bf_pair_diag   = TinyDFT->bf_pair_diag;
@@ -190,21 +187,21 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
     printf("TinyDFT handling shell pair sparsity over, elapsed time = %.3lf (s)\n", ut);
     
     int df_save_mem = TinyDFT->df_save_mem;
-    size_t tensor_msize = (size_t) bf_pair_nnz * (size_t) df_nbf * DBL_SIZE;
-    double axu_array_MB = (double) df_nbf * (double) n_occ * (double) nbf * DBL_SIZE / 1048576.0;
+    size_t tensor_msize = (size_t) bf_pair_nnz * (size_t) df_nbf * DBL_MSIZE;
+    double axu_array_MB = (double) df_nbf * (double) n_occ * (double) nbf * DBL_MSIZE / 1048576.0;
     double df_tensor_MB = tensor_msize / 1048576.0;
     
     st = get_wtime_sec();
     if (df_save_mem == 0)
     {
-        TinyDFT->pqA       = (double*) ALIGN64B_MALLOC(tensor_msize);
-        TinyDFT->df_tensor = (double*) ALIGN64B_MALLOC(tensor_msize);
+        TinyDFT->pqA       = (double*) malloc_aligned(tensor_msize, 64);
+        TinyDFT->df_tensor = (double*) malloc_aligned(tensor_msize, 64);
         assert(TinyDFT->pqA       != NULL);
         assert(TinyDFT->df_tensor != NULL);
         TinyDFT->mem_size += (double) tensor_msize * 2;
         axu_array_MB += df_tensor_MB;
     } else {
-        TinyDFT->pqA = (double*) ALIGN64B_MALLOC(tensor_msize);
+        TinyDFT->pqA = (double*) malloc_aligned(tensor_msize, 64);
         assert(TinyDFT->pqA != NULL);
         TinyDFT->df_tensor = TinyDFT->pqA;
         TinyDFT->mem_size += (double) tensor_msize;
@@ -294,7 +291,6 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
             int endM   = shell_bf_sind[M + 1];
             int startN = shell_bf_sind[N];
             int endN   = shell_bf_sind[N + 1];
-            int dimM   = endM - startM;
             int dimN   = endN - startN;
             double scrval0 = sp_scrval[M * nshell + N];
             
@@ -371,7 +367,6 @@ static void TinyDFT_calc_DF_2center_int(TinyDFT_t TinyDFT)
         int tid = omp_get_thread_num();
         int nint;
         double *ERIs;
-        int flag = 1;
         
         #pragma omp for schedule(dynamic)
         for (int M = 0; M < df_nshell; M++)
@@ -389,7 +384,6 @@ static void TinyDFT_calc_DF_2center_int(TinyDFT_t TinyDFT)
                 int endM   = df_shell_bf_sind[M + 1];
                 int startN = df_shell_bf_sind[N];
                 int endN   = df_shell_bf_sind[N + 1];
-                int dimM   = endM - startM;
                 int dimN   = endN - startN;
                 
                 for (int iM = startM; iM < endM; iM++)
@@ -398,9 +392,9 @@ static void TinyDFT_calc_DF_2center_int(TinyDFT_t TinyDFT)
                     for (int iN = startN; iN < endN; iN++)
                     {
                         int in = iN - startN;
-                        double I = ERIs[im * dimN + in];
-                        Jpq[iM * df_nbf + iN] = I;
-                        Jpq[iN * df_nbf + iM] = I;
+                        double eri = ERIs[im * dimN + in];
+                        Jpq[iM * df_nbf + iN] = eri;
+                        Jpq[iN * df_nbf + iM] = eri;
                     }
                 }
             }  // for (int N = i; N < df_nshell; N++)
@@ -415,10 +409,10 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
     
     /*
     // Don't use this stupid eigen-decomposition 
-    size_t df_mat_msize = DBL_SIZE * df_nbf * df_nbf;
-    double *tmp_mat0  = ALIGN64B_MALLOC(df_mat_msize);
-    double *tmp_mat1  = ALIGN64B_MALLOC(df_mat_msize);
-    double *df_eigval = ALIGN64B_MALLOC(DBL_SIZE * df_nbf);
+    size_t df_mat_msize = DBL_MSIZE * df_nbf * df_nbf;
+    double *tmp_mat0  = malloc_aligned(df_mat_msize, 64);
+    double *tmp_mat1  = malloc_aligned(df_mat_msize, 64);
+    double *df_eigval = malloc_aligned(DBL_MSIZE * df_nbf, 64);
     assert(tmp_mat0 != NULL && tmp_mat1 != NULL);
     // Diagonalize Jpq = U * S * U^T, the eigenvectors are stored in tmp_mat0
     memcpy(tmp_mat0, Jpq, df_mat_msize);
@@ -432,7 +426,7 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
     {
         double *tmp_mat0_ptr = tmp_mat0 + irow * df_nbf;
         double *tmp_mat1_ptr = tmp_mat1 + irow * df_nbf;
-        memcpy(tmp_mat1_ptr, tmp_mat0_ptr, DBL_SIZE * df_nbf);
+        memcpy(tmp_mat1_ptr, tmp_mat0_ptr, DBL_MSIZE * df_nbf);
         for (int icol = 0; icol < df_nbf; icol++)
             tmp_mat0_ptr[icol] *= df_eigval[icol];
     }
@@ -441,9 +435,9 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
         CblasRowMajor, CblasNoTrans, CblasTrans, df_nbf, df_nbf, df_nbf, 
         1.0, tmp_mat0, df_nbf, tmp_mat1, df_nbf, 0.0, Jpq, df_nbf
     );
-    ALIGN64B_FREE(tmp_mat0);
-    ALIGN64B_FREE(tmp_mat1);
-    ALIGN64B_FREE(df_eigval);
+    free_aligned(tmp_mat0);
+    free_aligned(tmp_mat1);
+    free_aligned(df_eigval);
     */
 
     LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', df_nbf, Jpq, df_nbf);

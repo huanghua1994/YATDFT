@@ -5,7 +5,7 @@
 #include <math.h>
 #include <omp.h>
 
-#include <mkl.h>
+#include "linalg_lib_wrapper.h"
 
 #ifdef USE_LIBXC
 #include <xc.h>
@@ -39,13 +39,13 @@ static void TinyDFT_flatten_shell_info_to_bf(TinyDFT_t TinyDFT)
         if (nprim_i > max_nprim) max_nprim = nprim_i;
     }
     TinyDFT->max_nprim = max_nprim;
-    TinyDFT->atom_idx  = (int*)    ALIGN64B_MALLOC(INT_SIZE * natom);
-    TinyDFT->bf_nprim  = (int*)    ALIGN64B_MALLOC(INT_SIZE * nbf);
-    TinyDFT->atom_xyz  = (double*) ALIGN64B_MALLOC(DBL_SIZE * 3 * natom);
-    TinyDFT->bf_coef   = (double*) ALIGN64B_MALLOC(DBL_SIZE * nbf * max_nprim);
-    TinyDFT->bf_alpha  = (double*) ALIGN64B_MALLOC(DBL_SIZE * nbf * max_nprim);
-    TinyDFT->bf_exp    = (double*) ALIGN64B_MALLOC(DBL_SIZE * nbf * 3);
-    TinyDFT->bf_center = (double*) ALIGN64B_MALLOC(DBL_SIZE * nbf * 3);
+    TinyDFT->atom_idx  = (int*)    malloc_aligned(INT_MSIZE * natom,           64);
+    TinyDFT->bf_nprim  = (int*)    malloc_aligned(INT_MSIZE * nbf,             64);
+    TinyDFT->atom_xyz  = (double*) malloc_aligned(DBL_MSIZE * 3 * natom,       64);
+    TinyDFT->bf_coef   = (double*) malloc_aligned(DBL_MSIZE * nbf * max_nprim, 64);
+    TinyDFT->bf_alpha  = (double*) malloc_aligned(DBL_MSIZE * nbf * max_nprim, 64);
+    TinyDFT->bf_exp    = (double*) malloc_aligned(DBL_MSIZE * nbf * 3,         64);
+    TinyDFT->bf_center = (double*) malloc_aligned(DBL_MSIZE * nbf * 3,         64);
     assert(TinyDFT->atom_idx  != NULL);
     assert(TinyDFT->bf_nprim  != NULL);
     assert(TinyDFT->atom_xyz  != NULL);
@@ -53,11 +53,11 @@ static void TinyDFT_flatten_shell_info_to_bf(TinyDFT_t TinyDFT)
     assert(TinyDFT->bf_alpha  != NULL);
     assert(TinyDFT->bf_exp    != NULL);
     assert(TinyDFT->bf_center != NULL);
-    TinyDFT->mem_size += (double) (INT_SIZE * (natom + nbf));
-    TinyDFT->mem_size += (double) (DBL_SIZE * 3 * natom);
-    TinyDFT->mem_size += (double) (DBL_SIZE * nbf * 2 * (max_nprim + 3));
-    memset(TinyDFT->bf_coef,  0, DBL_SIZE * nbf * max_nprim);
-    memset(TinyDFT->bf_alpha, 0, DBL_SIZE * nbf * max_nprim);
+    TinyDFT->mem_size += (double) (INT_MSIZE * (natom + nbf));
+    TinyDFT->mem_size += (double) (DBL_MSIZE * 3 * natom);
+    TinyDFT->mem_size += (double) (DBL_MSIZE * nbf * 2 * (max_nprim + 3));
+    memset(TinyDFT->bf_coef,  0, DBL_MSIZE * nbf * max_nprim);
+    memset(TinyDFT->bf_alpha, 0, DBL_MSIZE * nbf * max_nprim);
     
     for (int iatom = 0; iatom < natom; iatom++)
     {
@@ -78,7 +78,7 @@ static void TinyDFT_flatten_shell_info_to_bf(TinyDFT_t TinyDFT)
         double z_i      = simint->shells[i].z;
         double *coef_i  = simint->shells[i].coef;
         double *alpha_i = simint->shells[i].alpha;
-        size_t cp_msize = DBL_SIZE * nprim_i;
+        size_t cp_msize = DBL_MSIZE * nprim_i;
         for (int j = ibf; j < ibf + nbf_i; j++)
         {
             memcpy(TinyDFT->bf_coef  + j * max_nprim, coef_i,  cp_msize);
@@ -120,22 +120,22 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     if (nthread > 8)  nintp_blk = 2048;
     if (nthread > 16) nintp_blk = 4096;
     if (nthread > 32) nintp_blk = 8192;
-    size_t workbuf_msize = DBL_SIZE * nintp_blk * (nbf + 6);
-    workbuf_msize += DBL_SIZE * nbf * nbf;
+    size_t workbuf_msize = DBL_MSIZE * nintp_blk * (nbf + 6);
+    workbuf_msize += DBL_MSIZE * nbf * nbf;
     TinyDFT->nintp_blk  = nintp_blk;
-    TinyDFT->phi        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * nbf * 4);
-    TinyDFT->rho        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk * 5);
-    TinyDFT->exc        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
-    TinyDFT->vxc        = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
-    TinyDFT->vsigma     = (double*) ALIGN64B_MALLOC(DBL_SIZE * nintp_blk);
-    TinyDFT->XC_workbuf = (double*) ALIGN64B_MALLOC(workbuf_msize);
+    TinyDFT->phi        = (double*) malloc_aligned(DBL_MSIZE * nintp_blk * nbf * 4, 64);
+    TinyDFT->rho        = (double*) malloc_aligned(DBL_MSIZE * nintp_blk * 5,       64);
+    TinyDFT->exc        = (double*) malloc_aligned(DBL_MSIZE * nintp_blk,           64);
+    TinyDFT->vxc        = (double*) malloc_aligned(DBL_MSIZE * nintp_blk,           64);
+    TinyDFT->vsigma     = (double*) malloc_aligned(DBL_MSIZE * nintp_blk,           64);
+    TinyDFT->XC_workbuf = (double*) malloc_aligned(workbuf_msize,                  64);
     assert(TinyDFT->phi        != NULL);
     assert(TinyDFT->rho        != NULL);
     assert(TinyDFT->exc        != NULL);
     assert(TinyDFT->vxc        != NULL);
     assert(TinyDFT->vsigma     != NULL);
     assert(TinyDFT->XC_workbuf != NULL);
-    size_t XC_msize = DBL_SIZE * (nintp_blk * nbf * 4 + nintp_blk * 8) + workbuf_msize;
+    size_t XC_msize = DBL_MSIZE * (nintp_blk * nbf * 4 + nintp_blk * 8) + workbuf_msize;
     TinyDFT->mem_size += (double) (XC_msize);
     
     TinyDFT->xf_id = -1;
@@ -361,8 +361,9 @@ static void TinyDFT_eval_electron_density(
     #pragma omp parallel num_threads(nthread)
     {
         int tid  = omp_get_thread_num();
-        int spos = block_spos(nthread, tid,     npt);
-        int epos = block_spos(nthread, tid + 1, npt);
+        int spos, epos, len;
+        calc_block_spos_len(npt, nthread, tid, &spos, &len);
+        epos = spos + len;
         #pragma omp simd
         for (int g = spos; g < epos; g++) 
         {
@@ -691,7 +692,6 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
     int    cf_id      = TinyDFT->cf_id;
     int    xf_impl    = TinyDFT->xf_impl;
     int    cf_impl    = TinyDFT->cf_impl;
-    int    xf_family  = TinyDFT->xf_family;
     int    cf_family  = TinyDFT->cf_family;
     int    nintp      = TinyDFT->nintp;
     int    nintp_blk  = TinyDFT->nintp_blk;

@@ -5,7 +5,7 @@
 #include <math.h>
 #include <omp.h>
 
-#include <mkl.h>
+#include "linalg_lib_wrapper.h"
 
 #include "utils.h"
 #include "TinyDFT_typedef.h"
@@ -27,8 +27,8 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
     BasisSet_t basis   = TinyDFT->basis;
     
     // Compute core Hamiltonian and overlap matrix
-    memset(Hcore_mat, 0, DBL_SIZE * mat_size);
-    memset(S_mat,     0, DBL_SIZE * mat_size);
+    memset(Hcore_mat, 0, DBL_MSIZE * mat_size);
+    memset(S_mat,     0, DBL_MSIZE * mat_size);
     #pragma omp parallel for schedule(dynamic)
     for (int M = 0; M < nshell; M++)
     {
@@ -46,11 +46,11 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
             
             // Compute the contribution of current shell pair to core Hamiltonian matrix
             CMS_Simint_calc_pair_ovlp(simint, tid, M, N, &integrals, &nint);
-            if (nint > 0) copy_dbl_mat_blk(S_ptr, nbf, integrals, ncols, nrows, ncols);
+            if (nint > 0) copy_dbl_mat_blk(integrals, ncols, nrows, ncols, S_ptr, nbf);
             
             // Compute the contribution of current shell pair to overlap matrix
             CMS_Simint_calc_pair_Hcore(basis, simint, tid, M, N, &integrals, &nint);
-            if (nint > 0) copy_dbl_mat_blk(Hcore_ptr, nbf, integrals, ncols, nrows, ncols);
+            if (nint > 0) copy_dbl_mat_blk(integrals, ncols, nrows, ncols, Hcore_ptr, nbf);
         }
     }
     
@@ -61,10 +61,10 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
     double *U0_mat = U_mat  + mat_size;
     double *eigval = U0_mat + mat_size;
     // [U, D] = eig(S);
-    memcpy(U_mat, S_mat, DBL_SIZE * mat_size);
+    memcpy(U_mat, S_mat, DBL_MSIZE * mat_size);
     LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', nbf, U_mat, nbf, eigval); // U_mat will be overwritten by eigenvectors
     // X = U * D^{-1/2} * U'^T
-    memcpy(U0_mat, U_mat, DBL_SIZE * mat_size);
+    memcpy(U0_mat, U_mat, DBL_MSIZE * mat_size);
     int cnt = 0;
     double S_ev_thres = 1.0e-6;
     for (int i = 0; i < nbf; i++) 
@@ -99,7 +99,6 @@ static void TinyDFT_finalize_JKmat(const int nbf, double *J_mat, double *K_mat, 
         #pragma omp for schedule(dynamic)
         for (int irow = 0; irow < nbf; irow++)
         {
-            int idx = irow * nbf + irow;
             for (int icol = irow + 1; icol < nbf; icol++)
             {
                 int idx1 = irow * nbf + icol;
@@ -119,7 +118,6 @@ static void TinyDFT_finalize_JKmat(const int nbf, double *J_mat, double *K_mat, 
         #pragma omp for schedule(dynamic)
         for (int irow = 0; irow < nbf; irow++)
         {
-            int idx = irow * nbf + irow;
             for (int icol = irow + 1; icol < nbf; icol++)
             {
                 int idx1 = irow * nbf + icol;
@@ -136,7 +134,6 @@ static void TinyDFT_finalize_JKmat(const int nbf, double *J_mat, double *K_mat, 
         #pragma omp for schedule(dynamic)
         for (int irow = 0; irow < nbf; irow++)
         {
-            int idx = irow * nbf + irow;
             for (int icol = irow + 1; icol < nbf; icol++)
             {
                 int idx1 = irow * nbf + icol;
@@ -165,8 +162,9 @@ static void TinyDFT_JKblkmat_to_JKmat(
                 int Jblk_offset = blk_mat_ptr[i * nshell + j];
                 int J_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
                 copy_dbl_mat_blk(
-                    J_mat + J_offset, nbf, J_blk_mat + Jblk_offset, shell_bf_num[j],
-                    shell_bf_num[i], shell_bf_num[j]
+                    J_blk_mat + Jblk_offset, shell_bf_num[j],
+                    shell_bf_num[i], shell_bf_num[j],
+                    J_mat + J_offset, nbf
                 );
             }
         }
@@ -182,8 +180,9 @@ static void TinyDFT_JKblkmat_to_JKmat(
                 int Kblk_offset = blk_mat_ptr[i * nshell + j];
                 int K_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
                 copy_dbl_mat_blk(
-                    K_mat + K_offset, nbf, K_blk_mat + Kblk_offset, shell_bf_num[j],
-                    shell_bf_num[i], shell_bf_num[j]
+                    K_blk_mat + Kblk_offset, shell_bf_num[j],
+                    shell_bf_num[i], shell_bf_num[j],
+                    K_mat + K_offset, nbf
                 );
             }
         }
@@ -203,8 +202,9 @@ static void TinyDFT_Dmat_to_Dblkmat(
             int Dblk_offset = blk_mat_ptr[i * nshell + j];
             int D_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
             copy_dbl_mat_blk(
-                D_blk_mat + Dblk_offset, shell_bf_num[j], D_mat + D_offset, nbf, 
-                shell_bf_num[i], shell_bf_num[j]
+                D_mat + D_offset, nbf, 
+                shell_bf_num[i], shell_bf_num[j],
+                D_blk_mat + Dblk_offset, shell_bf_num[j]
             );
         }
     }
@@ -238,8 +238,8 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
     int build_K = (K_mat == NULL) ? 0 : 1;
     if (build_J == 0 && build_K == 0) return;
     
-    if (build_J) memset(J_blk_mat, 0, DBL_SIZE * mat_size);
-    if (build_K) memset(K_blk_mat, 0, DBL_SIZE * mat_size);
+    if (build_J) memset(J_blk_mat, 0, DBL_MSIZE * mat_size);
+    if (build_K) memset(K_blk_mat, 0, DBL_MSIZE * mat_size);
     
     #pragma omp parallel
     {
