@@ -5,8 +5,8 @@ A tiny library for constructing matrices used in Hartree-Fock (HF) and Kohn-Sham
 YATDFT requires:
 
 * [Simint](https://github.com/simint-chem/simint-generator) for electron repulsion integrals (ERI)
-* OpenMP and C99 supported C compiler
-* Intel MKL (could be replace by other BLAS+LAPACK implementations, have not tested yet)
+* C99 and OpenMP supported C compiler
+* Intel MKL (tested: MKL 17.0.4, 18.0.5, 19.0.5, but some version between 18.0.5 and 19.0.3 introduced a [bug MKLD-7820](https://software.intel.com/en-us/articles/intel-math-kernel-library-2019-bug-fixes)), OpenBLAS (tested: v0.3.8 + GCC 7.4.0) 
 * Optional: [Libxc](https://gitlab.com/libxc/libxc) for some XC GGA functionals (YATDFT has some built-in implementations)
 
 YATDFT can construct:
@@ -29,7 +29,7 @@ We use Intel Parallel Studio to compile Simint, Libxc, and YATDFT here. Simint a
 
 ### 1. Compiling Simint
 
-Notice: If possible, use ICC 17 instead of ICC 18 to compile Simint. It seems that ICC 18 will incorrectly optimize for some Simint functions. 
+Notice: If possible, use ICC 17 instead of ICC 18 to compile Simint. It seems that ICC 18 will incorrectly optimize for some Simint functions. ICC 19.0.5 works well again. 
 
 ```shell
 # Build Simint source code generator
