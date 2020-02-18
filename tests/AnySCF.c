@@ -52,10 +52,21 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, int J_op, int K_op)
     double *E_HF_exchange = &TinyDFT->E_HF_exchange;
     double *E_DFT_XC      = &TinyDFT->E_DFT_XC;
 
-    int JK_direct = 0;
-    double HF_x_coef = 0.2;
-    if (xf_family == FAMILY_HYB_GGA) K_op = 3;
-    if ((J_op == 0 && K_op == 0) || (J_op == 0 && K_op == 3)) JK_direct = 1;
+    int J_direct = 0, K_direct = 0, JK_direct = 0;
+    int J_denfit = 0, K_denfit = 0, K_xc = 0, xc_hybrid = 0;
+    if (xf_family == FAMILY_HYB_GGA) xc_hybrid = 1;
+    if (J_op == 0) J_direct = 1;
+    if (J_op == 1) J_denfit = 1;
+    if (K_op == 0) K_direct = 1;
+    if (K_op == 1) K_denfit = 1;
+    if (K_op == 2) K_xc     = 1;
+    if (xc_hybrid == 1)
+    {
+        if (J_direct == 1) K_direct = 1;
+        if (J_denfit == 1) K_denfit = 1;
+    }
+    JK_direct = J_direct & K_direct;
+    double HF_x_coef;
     if (xf_id == HYB_GGA_XC_B3LYP || xf_id == HYB_GGA_XC_B3LYP5) HF_x_coef = 0.2;
 
     while ((TinyDFT->iter < TinyDFT->max_iter) && (fabs(E_delta) >= TinyDFT->E_tol))
@@ -75,35 +86,35 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, int J_op, int K_op)
             J_time = 0.5 * (st2 - st1);
             K_time = 0.5 * (st2 - st1);
         }
-        if (JK_direct == 0 && J_op == 0)
+        if (JK_direct == 0 && J_direct == 1)
         {
             st1 = get_wtime_sec();
             TinyDFT_build_JKmat(TinyDFT, D_mat, J_mat, NULL);
             st2 = get_wtime_sec();
             J_time = st2 - st1;
         }
-        if (JK_direct == 0 && K_op == 0)
-        {
-            st1 = get_wtime_sec();
-            TinyDFT_build_JKmat(TinyDFT, D_mat, NULL, K_mat);
-            st2 = get_wtime_sec();
-            K_time = st2 - st1;
-        }
-        if (J_op == 1)
+        if (J_denfit == 1)
         {
             st1 = get_wtime_sec();
             TinyDFT_build_JKmat_DF(TinyDFT, D_mat, Cocc_mat, J_mat, NULL);
             st2 = get_wtime_sec();
             J_time = st2 - st1;
         }
-        if (K_op == 1)
+        if (JK_direct == 0 && K_direct == 1)
+        {
+            st1 = get_wtime_sec();
+            TinyDFT_build_JKmat(TinyDFT, D_mat, NULL, K_mat);
+            st2 = get_wtime_sec();
+            K_time = st2 - st1;
+        }
+        if (K_denfit == 1)
         {
             st1 = get_wtime_sec();
             TinyDFT_build_JKmat_DF(TinyDFT, D_mat, Cocc_mat, NULL, K_mat);
             st2 = get_wtime_sec();
             K_time = st2 - st1;
         }
-        if (K_op == 2 || K_op == 3)
+        if (K_xc == 1)
         {
             st1 = get_wtime_sec();
             *E_DFT_XC = TinyDFT_build_XC_mat(TinyDFT, D_mat, XC_mat);
@@ -116,13 +127,13 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, int J_op, int K_op)
             for (int i = 0; i < mat_size; i++)
                 F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] - K_mat[i];
         }
-        if (K_op == 2)
+        if (K_op == 2 && xc_hybrid == 0)
         {
             #pragma omp parallel for simd
             for (int i = 0; i < mat_size; i++)
                 F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] + XC_mat[i];
         }
-        if (K_op == 3)
+        if (K_op == 2 && xc_hybrid == 1)
         {
             #pragma omp parallel for simd
             for (int i = 0; i < mat_size; i++)
@@ -136,7 +147,7 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, int J_op, int K_op)
         
         // Calculate new system energy
         st1 = get_wtime_sec();
-        if (K_op != 2)
+        if (K_direct == 1 || K_denfit == 1)
         {
             TinyDFT_calc_HF_energy(
                 mat_size, D_mat, Hcore_mat, J_mat, K_mat, 
@@ -151,7 +162,7 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, int J_op, int K_op)
         E_curr = (*E_nuc_rep) + (*E_one_elec) + (*E_two_elec);
         if (K_op == 0 || K_op == 1) E_curr += (*E_HF_exchange);
         if (K_op == 2) E_curr += (*E_DFT_XC);
-        if (K_op == 3) E_curr += (*E_DFT_XC) + HF_x_coef * (*E_HF_exchange);
+        if (K_op == 2 && xc_hybrid == 1) E_curr += HF_x_coef * (*E_HF_exchange);
         et1 = get_wtime_sec();
         printf("* Calculate energy      : %.3lf (s)\n", et1 - st1);
         E_delta = E_curr - E_prev;

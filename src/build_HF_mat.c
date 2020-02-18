@@ -66,10 +66,10 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
     // X = U * D^{-1/2} * U'^T
     memcpy(U0_mat, U_mat, DBL_MSIZE * mat_size);
     int cnt = 0;
-    double S_ev_thres = 1.0e-6;
+    double S_ev_thres = 1.0e-5;  // This is the default threshold used in NWChem
     for (int i = 0; i < nbf; i++) 
     {
-        if (eigval[i] >= eigval[nbf - 1] * S_ev_thres)
+        if (eigval[i] >= S_ev_thres)
         {
             eigval[i] = 1.0 / sqrt(eigval[i]);
             cnt++;
@@ -77,7 +77,7 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
             eigval[i] = 0.0;
         }
     }
-    printf("Overlap matrix S truncation: reltol = %.2e, %d out of %d eigenvectors are preserved\n", S_ev_thres, cnt, nbf);
+    printf("Eliminating linear dependency in overlap matrix S: %d eigenvalues < %.2e are removed\n", nbf - cnt, S_ev_thres);
     for (int i = 0; i < nbf; i++)
     {
         #pragma omp simd
