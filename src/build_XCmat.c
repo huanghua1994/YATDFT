@@ -157,6 +157,11 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     if (strcmp(cf_str, "GGA_C_P86")  == 0) { TinyDFT->cf_id = GGA_C_P86;  TinyDFT->cf_family = FAMILY_GGA; }
     if (strcmp(cf_str, "GGA_C_PW91") == 0) { TinyDFT->cf_id = GGA_C_PW91; TinyDFT->cf_family = FAMILY_GGA; }
     
+    if (strcmp(xf_str, "HYB_GGA_XC_B3LYP")  == 0) { TinyDFT->xf_id = HYB_GGA_XC_B3LYP;  TinyDFT->xf_family = FAMILY_HYB_GGA; }
+    if (strcmp(cf_str, "HYB_GGA_XC_B3LYP")  == 0) { TinyDFT->cf_id = HYB_GGA_XC_B3LYP;  TinyDFT->cf_family = FAMILY_HYB_GGA; }
+    if (strcmp(xf_str, "HYB_GGA_XC_B3LYP5") == 0) { TinyDFT->xf_id = HYB_GGA_XC_B3LYP5; TinyDFT->xf_family = FAMILY_HYB_GGA; }
+    if (strcmp(cf_str, "HYB_GGA_XC_B3LYP5") == 0) { TinyDFT->cf_id = HYB_GGA_XC_B3LYP5; TinyDFT->cf_family = FAMILY_HYB_GGA; }
+    
     if (TinyDFT->xf_id == -1)
     {
         printf("WARNING: exchange %s not supported yet, fall back to LDA_X\n", xf_str);
@@ -557,16 +562,24 @@ static double TinyDFT_eval_GGA_XC_func(
         #endif
     }
     
-    if (cf_impl == 1)
+    if (xf_id == cf_id)  // If we are using hybrid GGA, we only need to calculate it once
     {
-        eval_GGA_exc_vxc(cf_id, npt, rho, sigma, ec, vrhoc, vsigmac);
+        size_t arr_msize = sizeof(double) * npt;
+        memset(ec,      0, arr_msize);
+        memset(vrhoc,   0, arr_msize);
+        memset(vsigmac, 0, arr_msize);
     } else {
-        #ifdef USE_LIBXC
-        xc_gga_exc_vxc(p_libxc_cf, npt, rho, sigma, ec, vrhoc, vsigmac);
-        #else
-        printf("Jesus, you triggered a bug at %s:%d!\n", __FILE__, __LINE__);
-        assert(cf_impl == 1);
-        #endif
+        if (cf_impl == 1)
+        {
+            eval_GGA_exc_vxc(cf_id, npt, rho, sigma, ec, vrhoc, vsigmac);
+        } else {
+            #ifdef USE_LIBXC
+            xc_gga_exc_vxc(p_libxc_cf, npt, rho, sigma, ec, vrhoc, vsigmac);
+            #else
+            printf("Jesus, you triggered a bug at %s:%d!\n", __FILE__, __LINE__);
+            assert(cf_impl == 1);
+            #endif
+        }
     }
     
     double E_xc = 0.0;
@@ -755,7 +768,7 @@ double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_m
             );
         }
         
-        if (cf_family == FAMILY_GGA)
+        if (cf_family == FAMILY_GGA || cf_family == FAMILY_HYB_GGA)
         {
             E_xc += TinyDFT_eval_GGA_XC_func(
                 xf_id, cf_id, xf_impl, cf_impl, 

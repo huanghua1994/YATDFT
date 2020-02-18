@@ -4,6 +4,7 @@
 // Functional and family IDs here are the same as Libxc
 #define  FAMILY_LDA                1
 #define  FAMILY_GGA                2
+#define  FAMILY_HYB_GGA           32
 #define  LDA_X                     1  // Slater exchange
 #define  LDA_C_XA                  6  // Slater Xalpha correlation
 #define  LDA_C_PZ                  9  // Perdew & Zunger 81 correlation
@@ -17,6 +18,8 @@
 #define  GGA_C_LYP               131  // Lee, Yang & Parr correlation
 #define  GGA_C_P86               132  // Perdew 86 correlation
 #define  GGA_C_PW91              134  // Perdew & Wang 91 correlation
+#define  HYB_GGA_XC_B3LYP        402  // The (in)famous B3LYP
+#define  HYB_GGA_XC_B3LYP5       475  // B3LYP with VWN functional 5 instead of RPA
 
 const static int num_impl_xc_func = 8;
 const static int impl_xc_func[8]  = {

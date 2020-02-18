@@ -21,5 +21,7 @@
 
 #include "linalg_lib_wrapper.h"
 
+#include "eval_XC_func.h"
+
 #endif
 

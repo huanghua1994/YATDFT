@@ -24,7 +24,7 @@ void save_mat_to_file(
     printf("Binary file %s output finished\n", ouf_name);
 }
 
-void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, const int J_op, const int K_op)
+void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, int J_op, int K_op)
 {
     // Start SCF iterations
     printf("Self-Consistent Field iteration started...\n");
@@ -35,6 +35,8 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, const int J_op, const in
     
     int    nbf            = TinyDFT->nbf;
     int    mat_size       = TinyDFT->mat_size;
+    int    xf_id          = TinyDFT->xf_id;
+    int    xf_family      = TinyDFT->xf_family;
     double *Hcore_mat     = TinyDFT->Hcore_mat;
     double *S_mat         = TinyDFT->S_mat;
     double *X_mat         = TinyDFT->X_mat;
@@ -50,50 +52,87 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, const int J_op, const in
     double *E_HF_exchange = &TinyDFT->E_HF_exchange;
     double *E_DFT_XC      = &TinyDFT->E_DFT_XC;
 
+    int JK_direct = 0;
+    double HF_x_coef = 0.2;
+    if (xf_family == FAMILY_HYB_GGA) K_op = 3;
+    if ((J_op == 0 && K_op == 0) || (J_op == 0 && K_op == 3)) JK_direct = 1;
+    if (xf_id == HYB_GGA_XC_B3LYP || xf_id == HYB_GGA_XC_B3LYP5) HF_x_coef = 0.2;
+
     while ((TinyDFT->iter < TinyDFT->max_iter) && (fabs(E_delta) >= TinyDFT->E_tol))
     {
         printf("--------------- Iteration %d ---------------\n", TinyDFT->iter);
         
         double st0, et0, st1, et1, st2;
+        double J_time = 0, K_time = 0, XC_time = 0;
         st0 = get_wtime_sec();
         
         // Build the Fock matrix
-        if (J_op == 0 && K_op == 0)
+        if (JK_direct == 1)
         {
             st1 = get_wtime_sec();
             TinyDFT_build_JKmat(TinyDFT, D_mat, J_mat, K_mat);
-            #pragma omp parallel for simd
-            for (int i = 0; i < mat_size; i++)
-                F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] - K_mat[i];
             st2 = get_wtime_sec();
-            et1 = st2;
-            printf("* Build Fock matrix     : %.3lf (s)\n", et1 - st1);
+            J_time = 0.5 * (st2 - st1);
+            K_time = 0.5 * (st2 - st1);
         }
-        st1 = get_wtime_sec();
-        if (J_op == 0 && K_op != 0) TinyDFT_build_JKmat   (TinyDFT, D_mat,           J_mat, NULL);
-        if (J_op == 1             ) TinyDFT_build_JKmat_DF(TinyDFT, D_mat, Cocc_mat, J_mat, NULL);
-        st2 = get_wtime_sec();
-        if (J_op != 0 && K_op == 0) TinyDFT_build_JKmat   (TinyDFT, D_mat,           NULL, K_mat);
-        if (             K_op == 1) TinyDFT_build_JKmat_DF(TinyDFT, D_mat, Cocc_mat, NULL, K_mat);
-        if (K_op == 2)  *E_DFT_XC = TinyDFT_build_XC_mat  (TinyDFT, D_mat,                 XC_mat);
-        if (K_op != 2)
+        if (JK_direct == 0 && J_op == 0)
+        {
+            st1 = get_wtime_sec();
+            TinyDFT_build_JKmat(TinyDFT, D_mat, J_mat, NULL);
+            st2 = get_wtime_sec();
+            J_time = st2 - st1;
+        }
+        if (JK_direct == 0 && K_op == 0)
+        {
+            st1 = get_wtime_sec();
+            TinyDFT_build_JKmat(TinyDFT, D_mat, NULL, K_mat);
+            st2 = get_wtime_sec();
+            K_time = st2 - st1;
+        }
+        if (J_op == 1)
+        {
+            st1 = get_wtime_sec();
+            TinyDFT_build_JKmat_DF(TinyDFT, D_mat, Cocc_mat, J_mat, NULL);
+            st2 = get_wtime_sec();
+            J_time = st2 - st1;
+        }
+        if (K_op == 1)
+        {
+            st1 = get_wtime_sec();
+            TinyDFT_build_JKmat_DF(TinyDFT, D_mat, Cocc_mat, NULL, K_mat);
+            st2 = get_wtime_sec();
+            K_time = st2 - st1;
+        }
+        if (K_op == 2 || K_op == 3)
+        {
+            st1 = get_wtime_sec();
+            *E_DFT_XC = TinyDFT_build_XC_mat(TinyDFT, D_mat, XC_mat);
+            st2 = get_wtime_sec();
+            XC_time = st2 - st1;
+        }
+        if (K_op == 0 || K_op == 1)
         {
             #pragma omp parallel for simd
             for (int i = 0; i < mat_size; i++)
                 F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] - K_mat[i];
-        } else {
+        }
+        if (K_op == 2)
+        {
             #pragma omp parallel for simd
             for (int i = 0; i < mat_size; i++)
                 F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] + XC_mat[i];
         }
-        et1 = get_wtime_sec();
-        if (J_op != 0 || K_op != 0)
+        if (K_op == 3)
         {
-            printf(
-                "* Build Fock matrix     : %.3lf (s), J, K/XC = %.3lf, %.3lf (s)\n", 
-                et1 - st1, st2 - st1, et1 - st2
-            );
+            #pragma omp parallel for simd
+            for (int i = 0; i < mat_size; i++)
+                F_mat[i] = Hcore_mat[i] + 2 * J_mat[i] + XC_mat[i] - HF_x_coef * K_mat[i];
         }
+        et1 = get_wtime_sec();
+        printf(
+            "* Build Fock matrix     : %.3lf (s), J, K, XC = %.3lf, %.3lf, %.3lf (s)\n", 
+            et1 - st0, J_time, K_time, XC_time
+        );
         
         // Calculate new system energy
         st1 = get_wtime_sec();
@@ -103,14 +142,16 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, const int J_op, const in
                 mat_size, D_mat, Hcore_mat, J_mat, K_mat, 
                 E_one_elec, E_two_elec, E_HF_exchange
             );
-            E_curr = (*E_nuc_rep) + (*E_one_elec) + (*E_two_elec) + (*E_HF_exchange);
         } else {
             TinyDFT_calc_HF_energy(
                 mat_size, D_mat, Hcore_mat, J_mat, NULL, 
                 E_one_elec, E_two_elec, NULL
             );
-            E_curr = (*E_nuc_rep) + (*E_one_elec) + (*E_two_elec) + (*E_DFT_XC);
         }
+        E_curr = (*E_nuc_rep) + (*E_one_elec) + (*E_two_elec);
+        if (K_op == 0 || K_op == 1) E_curr += (*E_HF_exchange);
+        if (K_op == 2) E_curr += (*E_DFT_XC);
+        if (K_op == 3) E_curr += (*E_DFT_XC) + HF_x_coef * (*E_HF_exchange);
         et1 = get_wtime_sec();
         printf("* Calculate energy      : %.3lf (s)\n", et1 - st1);
         E_delta = E_curr - E_prev;
@@ -162,7 +203,9 @@ void print_usage(const char *argv0)
     printf("  * direct/DF J: 0 for direct method, 1 for density fitting\n");
     printf("  * direct/DF/DFT K/XC: 0 for direct method K, 1 for density fitting K, 2 for DFT XC\n");
     printf("  * available XC functions: LDA_X, LDA_C_XA, LDA_C_PZ, LDA_C_PW,\n");
-    printf("                            GGA_X_PBE, GGA_X_B88, GGA_C_PBE, GGA_C_LYP\n");
+    printf("                            GGA_X_PBE, GGA_X_B88, GGA_C_PBE, GGA_C_LYP, \n");
+    printf("                            HYB_GGA_XC_B3LYP, HYB_GGA_XC_B3LYP5\n");
+    printf("  Note: if you use hybrid GGA functionals, enter it twice for both <X-func> and <C-func>.\n");
 }
 
 int main(int argc, char **argv)
