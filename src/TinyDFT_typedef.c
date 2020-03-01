@@ -171,6 +171,8 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->vxc        = NULL;
     TinyDFT->vsigma     = NULL;
     TinyDFT->XC_workbuf = NULL;
+    TinyDFT->xf_impl    = 1;
+    TinyDFT->cf_impl    = 1;
     
     // Allocate memory for matrices used in multiple modules
     TinyDFT->tmp_mat = (double*) malloc_aligned(mat_msize, 64);

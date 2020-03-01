@@ -128,7 +128,7 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
     TinyDFT->exc        = (double*) malloc_aligned(DBL_MSIZE * nintp_blk,           64);
     TinyDFT->vxc        = (double*) malloc_aligned(DBL_MSIZE * nintp_blk,           64);
     TinyDFT->vsigma     = (double*) malloc_aligned(DBL_MSIZE * nintp_blk,           64);
-    TinyDFT->XC_workbuf = (double*) malloc_aligned(workbuf_msize,                  64);
+    TinyDFT->XC_workbuf = (double*) malloc_aligned(workbuf_msize,                   64);
     assert(TinyDFT->phi        != NULL);
     assert(TinyDFT->rho        != NULL);
     assert(TinyDFT->exc        != NULL);
