@@ -34,6 +34,8 @@ void TinyDFT_build_Cocc_from_Dmat(TinyDFT_t TinyDFT, const double *D_mat, double
 //   Cocc_mat : Cocc matrix, size nbf * n_occ
 void TinyDFT_build_Dmat_eig(TinyDFT_t TinyDFT, const double *F_mat, const double *X_mat, double *D_mat, double *Cocc_mat);
 
+void TinyDFT_build_Dmat_PD(TinyDFT_t TinyDFT, const double *F_mat, const double *X_mat, double *D_mat, double *Cocc_mat);
+
 #ifdef __cplusplus
 }
 #endif

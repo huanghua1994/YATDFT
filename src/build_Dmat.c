@@ -114,25 +114,31 @@ void TinyDFT_build_Dmat_eig(TinyDFT_t TinyDFT, const double *F_mat, const double
     int    *ev_idx   = TinyDFT->ev_idx;
     double *eigval   = TinyDFT->eigval;
     double *tmp_mat  = TinyDFT->tmp_mat;
+    double *C_mat    = TinyDFT->C_mat;
 
     // Notice: here F_mat is already = X^T * F * X
     memcpy(tmp_mat, F_mat, DBL_MSIZE * mat_size);
     
-    // Diagonalize F = C0^T * epsilon * C0, and C = X * C0 
-    // [C0, E] = eig(F1), now C0 is stored in tmp_mat
-    LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', nbf, tmp_mat, nbf, eigval);  // tmp_mat will be overwritten by eigenvectors
-    // C = X * C0, now C is stored in D_mat
-    cblas_dgemm(
-        CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, nbf, nbf, 
-        1.0, X_mat, nbf, tmp_mat, nbf, 0.0, D_mat, nbf
-    );
+    // Diagonalize F = C^T * epsilon * C
+    // [C, E] = eig(F1), now C is stored in tmp_mat, each column is a eigenvector
+    LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', nbf, tmp_mat, nbf, eigval);  
     
-    // Form the C_occ with eigenvectors corresponding to n_occ smallest eigenvalues
+    // Sort the eigenvectors according to the eigenvalues
     for (int i = 0; i < nbf; i++) ev_idx[i] = i;
     quickSort(eigval, ev_idx, 0, nbf - 1);
-    for (int j = 0; j < n_occ; j++)
+    #pragma omp parallel for
+    for (int j = 0; j < nbf; j++)
+    {
+        #pragma omp simd
         for (int i = 0; i < nbf; i++)
-            Cocc_mat[i * n_occ + j] = D_mat[i * nbf + ev_idx[j]];
+            C_mat[i * nbf + j] = tmp_mat[i * nbf + ev_idx[j]];
+    }
+    
+    // C_occ = X * C(:, 1:n_occ)
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, n_occ, nbf, 
+        1.0, X_mat, nbf, C_mat, nbf, 0.0, Cocc_mat, n_occ
+    );
     
     // D = C_occ * C_occ^T
     cblas_dgemm(
@@ -141,3 +147,86 @@ void TinyDFT_build_Dmat_eig(TinyDFT_t TinyDFT, const double *F_mat, const double
     );
 }
 
+void TinyDFT_build_Dmat_PD(TinyDFT_t TinyDFT, const double *F_mat, const double *X_mat, double *D_mat, double *Cocc_mat)
+{
+    int nbf   = TinyDFT->nbf;
+    int n_occ = TinyDFT->n_occ;
+    int n_vir = nbf - n_occ;
+    int mat_size = TinyDFT->mat_size;
+    
+    double *eigval    = TinyDFT->eigval;
+    double *C_mat     = TinyDFT->C_mat;
+    double *tmp_mat   = TinyDFT->tmp_mat;
+    double *Rot_mat   = tmp_mat + mat_size;
+    double *C_prev    = Rot_mat + mat_size;
+    double *workbuf   = C_prev  + mat_size;
+    
+    // Calculate the rotation angles X(i, a) and the threshold
+    double *Cocc_prev = C_mat;
+    double *Cvir_prev = C_mat + n_occ;
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasNoTrans, nbf, n_vir, nbf,
+        1.0, F_mat, nbf, Cvir_prev, nbf, 0.0, tmp_mat, n_vir
+    );
+    cblas_dgemm(
+        CblasRowMajor, CblasTrans, CblasNoTrans, n_occ, n_vir, nbf,
+        1.0, Cocc_prev, nbf, tmp_mat, n_vir, 0.0, Rot_mat, n_vir
+    );
+    double *Eocc_prev = eigval;
+    double *Evir_prev = eigval + n_occ;
+    #pragma omp parallel for
+    for (int i = 0; i < n_occ; i++)
+    {
+        #pragma omp simd
+        for (int a = 0; a < n_vir; a++)
+            Rot_mat[i * n_vir + a] /= (Eocc_prev[i] - Evir_prev[a]);
+    }
+    double Rot_tol = 0.0;
+    for (int i = 0; i < n_occ * n_vir; i++)
+        if (fabs(Rot_mat[i]) > Rot_tol) Rot_tol = fabs(Rot_mat[i]);
+    Rot_tol *= 0.04;
+    
+    // Transpose previous C matrix for better performance below
+    #pragma omp parallel for
+    for (int i = 0; i < nbf; i++)
+    {
+        #pragma omp simd
+        for (int j = 0; j < nbf; j++)
+        {
+            C_prev[i * nbf + j]  = C_mat[j * nbf + i];
+            workbuf[i * nbf + j] = C_mat[j * nbf + i];
+        }
+    }
+    Cocc_prev = C_prev;
+    Cvir_prev = C_prev + n_occ * nbf;
+    
+    // Perform Givens rotation between occupied and virtual eigenvectors
+    double *Cocc_new = workbuf;
+    #pragma omp parallel for
+    for (int i = 0; i < n_occ; i++)
+    {
+        double *Cocc_new_i = Cocc_new + i * nbf;
+        for (int a = 0; a < n_vir; a++)
+        {
+            if (fabs(Rot_mat[i * n_vir + a]) < Rot_tol) continue;
+            double *Cvir_a = Cvir_prev + a * nbf;
+            double s = Rot_mat[i * n_vir + a];
+            double c = sqrt(1.0 - s * s);
+            #pragma omp simd
+            for (int k = 0; k < nbf; k++)
+                Cocc_new_i[k] = c * Cocc_new_i[k] - s * Cvir_a[k];
+        }
+    }
+    
+    // C_occ = X * C(:, 1:n_occ)
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasTrans, nbf, n_occ, nbf, 
+        1.0, X_mat, nbf, Cocc_new, nbf, 0.0, Cocc_mat, n_occ
+    );
+    
+    // D = C_occ * C_occ^T
+    cblas_dgemm(
+        CblasRowMajor, CblasNoTrans, CblasTrans, nbf, nbf, n_occ, 
+        1.0, Cocc_mat, n_occ, Cocc_mat, n_occ, 0.0, D_mat, nbf
+    );
+}

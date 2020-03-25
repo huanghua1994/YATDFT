@@ -129,6 +129,7 @@ struct TinyDFT_struct
     double *XC_mat;         // Exchange-correlation functional matrix
     double *F_mat;          // Fock matrix (from Hcore, J, K/XC)
     double *D_mat;          // Density matrix
+    double *C_mat;          // Factor of X^T * F * X matrix 
     double *Cocc_mat;       // Factor of density matrix
 
     // Tensors and matrices used only in build_JKDF

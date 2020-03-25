@@ -69,6 +69,10 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, int J_op, int K_op)
     double HF_x_coef;
     if (xf_id == HYB_GGA_XC_B3LYP || xf_id == HYB_GGA_XC_B3LYP5) HF_x_coef = 0.2;
 
+    int use_PD = 0;
+    char *use_PD_p = getenv("USE_PD");
+    if (use_PD_p != NULL) use_PD = atoi(use_PD_p);
+
     while ((TinyDFT->iter < TinyDFT->max_iter) && (fabs(E_delta) >= TinyDFT->E_tol))
     {
         printf("--------------- Iteration %d ---------------\n", TinyDFT->iter);
@@ -186,7 +190,17 @@ void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, int J_op, int K_op)
         
         // Diagonalize and build the density matrix
         st1 = get_wtime_sec();
-        TinyDFT_build_Dmat_eig(TinyDFT, F_mat, X_mat, D_mat, Cocc_mat);
+        if (use_PD == 0) 
+        {
+            TinyDFT_build_Dmat_eig(TinyDFT, F_mat, X_mat, D_mat, Cocc_mat);
+        } else {
+            if ((fabs(E_delta) < 0.5) && (TinyDFT->iter % use_PD))
+            {
+                TinyDFT_build_Dmat_PD (TinyDFT, F_mat, X_mat, D_mat, Cocc_mat);
+            } else {
+                TinyDFT_build_Dmat_eig(TinyDFT, F_mat, X_mat, D_mat, Cocc_mat);
+            }
+        }
         et1 = get_wtime_sec(); 
         printf("* Build density matrix  : %.3lf (s)\n", et1 - st1);
         

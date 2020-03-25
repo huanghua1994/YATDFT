@@ -175,9 +175,9 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->cf_impl    = 1;
     
     // Allocate memory for matrices used in multiple modules
-    TinyDFT->tmp_mat = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->tmp_mat = (double*) malloc_aligned(mat_msize * 4, 64);
     assert(TinyDFT->tmp_mat != NULL);
-    TinyDFT->mem_size += (double) (mat_msize);
+    TinyDFT->mem_size += (double) (mat_msize * 4);
     
     // Allocate memory for matrices and arrays used only in build_Dmat
     TinyDFT->ev_idx = (int*)    malloc_aligned(INT_MSIZE * nbf, 64);
@@ -224,7 +224,8 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     TinyDFT->XC_mat    = (double*) malloc_aligned(mat_msize, 64);
     TinyDFT->F_mat     = (double*) malloc_aligned(mat_msize, 64);
     TinyDFT->D_mat     = (double*) malloc_aligned(mat_msize, 64);
-    TinyDFT->Cocc_mat  = (double*) malloc_aligned(DBL_MSIZE * n_occ * nbf, 64);
+    TinyDFT->C_mat     = (double*) malloc_aligned(mat_msize, 64);
+    TinyDFT->Cocc_mat  = (double*) malloc_aligned(mat_msize, 64);
     assert(TinyDFT->Hcore_mat != NULL);
     assert(TinyDFT->S_mat     != NULL);
     assert(TinyDFT->X_mat     != NULL);
@@ -233,9 +234,9 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     assert(TinyDFT->XC_mat    != NULL);
     assert(TinyDFT->F_mat     != NULL);
     assert(TinyDFT->D_mat     != NULL);
+    assert(TinyDFT->C_mat     != NULL);
     assert(TinyDFT->Cocc_mat  != NULL);
-    TinyDFT->mem_size += (double) (8 * mat_msize);
-    TinyDFT->mem_size += (double) (DBL_MSIZE * n_occ * nbf);
+    TinyDFT->mem_size += (double) (10 * mat_msize);
     memset(TinyDFT->Cocc_mat, 0, DBL_MSIZE * n_occ * nbf);
 
     // Tensors and matrices used only in build_JKDF will 
@@ -351,6 +352,7 @@ void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
     free_aligned(TinyDFT->J_mat);
     free_aligned(TinyDFT->K_mat);
     free_aligned(TinyDFT->X_mat);
+    free_aligned(TinyDFT->C_mat);
     free_aligned(TinyDFT->Cocc_mat);
     
     // Free Tensors and matrices used only in build_JKDF
