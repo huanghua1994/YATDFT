@@ -107,18 +107,8 @@ void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double pri
     CMS_ASSERT(s->shellpairs != NULL);
     s->shellpair_memsize = (double) sp_msize;
 
-    // UNDONE: exploit symmetry
-    for (int i = 0; i < nshell; i++)
-    {
-        for (int j = 0; j< nshell; j++)
-        {
-            multi_sp_t pair;
-            pair = &s->shellpairs[i * nshell + j];
-            simint_initialize_multi_shellpair(pair);
-            simint_create_multi_shellpair(1, s->shells+i, 1, s->shells+j, pair, s->screen_method);
-            s->shellpair_memsize += (double) pair->memsize;
-        }
-    }
+    // Do not initialize all shell pairs now to reduce the memory usage,
+    // unique screened shell pairs will be created after screening.
     
     // Reset timer
     s->ostei_setup   = 0.0;
@@ -143,13 +133,6 @@ void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double pri
     memset(s->num_screened_vec,     0, stat_info_size);
     memset(s->num_unscreened_vec,   0, stat_info_size);
     
-    double workmem_MB = s->workmem_per_thread * 64 * sizeof(double) / 1048576.0;
-    double outmem_MB  = s->outmem_per_thread  * 64 * sizeof(double) / 1048576.0;
-    double shellpair_mem_MB = s->shellpair_memsize / 1048576.0;
-    double stat_info_mem_MB = stat_info_size * 6   / 1048576.0;
-    double Simint_mem_MB = workmem_MB + outmem_MB + outmem_MB + shellpair_mem_MB + stat_info_mem_MB;
-    printf("CMS Simint memory usage = %.2lf MB \n", Simint_mem_MB);
-    
     s->df_am_shell_id   = NULL;
     s->df_am_shell_spos = NULL;
     s->df_am_shell_num  = NULL;
@@ -157,6 +140,36 @@ void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double pri
     s->df_shellpairs    = NULL;
     
     *simint = s;
+}
+
+void CMS_Simint_create_uniq_scr_sp(Simint_t simint, const int nsp, const int *M_list, const int *N_list)
+{
+    int nshell = simint->nshell;
+    
+    #pragma omp parallel for schedule(dynamic, 16)
+    for (int i = 0; i < nsp; i++)
+    {
+        int M = M_list[i];
+        int N = N_list[i];
+        multi_sp_t MN_pair = &simint->shellpairs[M * nshell + N];
+        simint_initialize_multi_shellpair(MN_pair);
+        simint_create_multi_shellpair(1, simint->shells + M, 1, simint->shells + N, MN_pair, simint->screen_method);
+        simint->shellpair_memsize += (double) MN_pair->memsize;
+        if (M != N)
+        {
+            multi_sp_t NM_pair = &simint->shellpairs[N * nshell + M];
+            simint_initialize_multi_shellpair(NM_pair);
+            simint_create_multi_shellpair(1, simint->shells + N, 1, simint->shells + M, NM_pair, simint->screen_method);
+            simint->shellpair_memsize += (double) NM_pair->memsize;
+        }
+    }
+    
+    double workmem_MB = simint->workmem_per_thread * 64 * sizeof(double) / 1048576.0;
+    double outmem_MB  = simint->outmem_per_thread  * 64 * sizeof(double) / 1048576.0;
+    double shellpair_mem_MB = simint->shellpair_memsize / 1048576.0;
+    double stat_info_mem_MB = sizeof(double) * simint->nthread * 6 / 1048576.0;
+    double Simint_mem_MB = workmem_MB + outmem_MB + outmem_MB + shellpair_mem_MB + stat_info_mem_MB;
+    printf("CMS Simint memory usage = %.2lf MB \n", Simint_mem_MB);
 }
 
 void CMS_Simint_setup_DF(Simint_t simint, BasisSet_t df_basis)
@@ -481,6 +494,68 @@ void CMS_Simint_calc_shellquartet(
         shell_t shells = simint->shells;
         ERI_size = NCART(shells[M].am) * NCART(shells[N].am)
                  * NCART(shells[P].am) * NCART(shells[Q].am);
+    }
+
+    *ERI  = output_buff;
+    *nint = ERI_size;
+    
+    double *prim_screen_stat_info = *ERI + ERI_size;
+    simint->num_unscreened_prim[tid] += prim_screen_stat_info[0];
+    simint->num_screened_prim[tid]   += prim_screen_stat_info[1];
+    simint->num_unscreened_vec[tid]  += prim_screen_stat_info[2];
+    simint->num_screened_vec[tid]    += prim_screen_stat_info[3];
+
+    if (tid == 0)
+    {
+        simint->ostei_setup  += setup_end - setup_start;
+        simint->ostei_actual += ostei_end - ostei_start;
+    }
+}
+
+void CMS_Simint_calc_MNMN_shellquartet(
+    Simint_t simint, int tid, int M, int N, 
+    void **multi_sp_, double **ERI, int *nint
+)
+{
+    double setup_start, setup_end, ostei_start, ostei_end;
+
+    if (tid == 0) setup_start = CMS_get_walltime_sec();
+
+    // Don't need to call simint_free_multi_shellpair() after use, 
+    // Simint can reuse the allocated space next time if possible
+    multi_sp_t MN_pair = (multi_sp_t) *multi_sp_;
+    simint_create_multi_shellpair(
+        1, simint->shells + M, 1, simint->shells + N, 
+        MN_pair, simint->screen_method
+    );
+    
+    simint->num_multi_shellpairs[tid] += 1.0;
+    simint->sum_nprim[tid] += (double) MN_pair->nprim;
+
+    if (tid == 0) 
+    {
+        setup_end   = CMS_get_walltime_sec();
+        ostei_start = CMS_get_walltime_sec();
+    }
+    
+    double *work_buff   = &simint->workbuf[tid * simint->workmem_per_thread];
+    double *output_buff = &simint->outbuf [tid * simint->outmem_per_thread];
+    int ret = simint_compute_eri(
+        MN_pair, MN_pair, simint->screen_tol,
+        work_buff, output_buff
+    );
+    
+    if (tid == 0) ostei_end = CMS_get_walltime_sec();
+    
+    int ERI_size;
+    if (ret < 0) 
+    {
+        ERI_size = 0; // Return zero ERI_size to caller; output buffer is not initialized
+    } else {
+        CMS_ASSERT(ret == 1); // Single shell quartet
+        shell_t shells = simint->shells;
+        ERI_size = NCART(shells[M].am) * NCART(shells[N].am)
+                 * NCART(shells[M].am) * NCART(shells[N].am);
     }
 
     *ERI  = output_buff;

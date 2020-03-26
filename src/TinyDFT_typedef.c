@@ -430,6 +430,9 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
     #pragma omp parallel
     {
         int tid = omp_get_thread_num();
+        void *thread_MN_sp;
+        CMS_Simint_create_multi_sp(&thread_MN_sp);
+        
         #pragma omp for schedule(dynamic) reduction(max:global_max_scrval)
         for (int M = 0; M < nshell; M++)
         {
@@ -440,12 +443,12 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
                 int dimN = shell_bf_num[N];
                 int N_bf_idx = shell_bf_sind[N];
                 
-                int nints;
-                double *integrals;
-                CMS_Simint_calc_shellquartet(simint, tid, M, N, M, N, &integrals, &nints);
+                int nint;
+                double *eri;
+                CMS_Simint_calc_MNMN_shellquartet(simint, tid, M, N, &thread_MN_sp, &eri, &nint);
                 
                 double maxval = 0.0;
-                if (nints > 0)
+                if (nint > 0)
                 {
                     // Loop over all ERIs in a shell quartet and find the max value
                     for (int iM = 0; iM < dimM; iM++)
@@ -453,18 +456,27 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
                         for (int iN = 0; iN < dimN; iN++)
                         {
                             int index = iN * (dimM * dimN * dimM + dimM) + iM * (dimN * dimM + 1); // Simint layout
-                            double val = fabs(integrals[index]);
+                            double val = fabs(eri[index]);
                             int bf_idx = (M_bf_idx + iM) * nbf + (N_bf_idx + iN);
                             bf_pair_scrval[bf_idx] = val;
                             if (val > maxval) maxval = val;
                         }
                     }
+                } else {
+                    for (int iM = 0; iM < dimM; iM++)
+                        for (int iN = 0; iN < dimN; iN++)
+                        {
+                            int bf_idx = (M_bf_idx + iM) * nbf + (N_bf_idx + iN);
+                            bf_pair_scrval[bf_idx] = 0.0;
+                        }
                 }
                 sp_scrval[M * nshell + N] = maxval;
                 if (maxval > global_max_scrval) global_max_scrval = maxval;
-            }
-        }
-    }
+            }  // End of "for (int N = 0; N < nshell; N++)"
+        }  // End of "for (int M = 0; M < nshell; M++)"
+        
+        CMS_Simint_free_multi_sp(thread_MN_sp);
+    }  // End of "#pragma omp parallel"
     
     // Reset Simint statistic info
     CMS_Simint_reset_stat_info(simint);
@@ -503,6 +515,9 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
     }
     TinyDFT->num_valid_sp = num_valid_sp;
     quickSort(valid_sp_lid, valid_sp_rid, 0, num_valid_sp - 1);
+    
+    // Create Simint shell pair structures for unique screened shell pairs
+    CMS_Simint_create_uniq_scr_sp(simint, num_valid_sp, valid_sp_lid, valid_sp_rid);
     
     double et = get_wtime_sec();
     TinyDFT->shell_scr_time = et - st;

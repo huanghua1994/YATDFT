@@ -60,6 +60,14 @@ extern "C" {
 //   simint : Initialized Simint structure
 void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double prim_scrval);
 
+// Create Simint shell pair structures for unique screened shell pairs
+// Input parameters:
+//   nsp        : Number of unique screened shell pairs
+//   {M,N}_list : Shell pair (M_list[i], N_list[i]) is a unique screened shell pair
+// Output parameter: 
+//   simint : Simint structure with initialized unique screened shell pairs
+void CMS_Simint_create_uniq_scr_sp(Simint_t simint, const int nsp, const int *M_list, const int *N_list);
+
 // Set up density fitting (DF) related data structures in a Simint structure
 // Input parameters:
 //   simint   : Initialized Simint structure
@@ -142,13 +150,29 @@ void CMS_Simint_calc_pair_ovlp(
 //   tid        : Thread ID
 //   M, N, P, Q : Shell indices
 // Output parameters:
-//   *integrals : Pointer to the calculated block, size 
-//                NCART(AM(M)) * NCART(AM(N)) * NCART(AM(P)) * NCART(AM(Q))
-//   *nint      : 0 if simint is not initialized, otherwise == 
-//                NCART(AM(M)) * NCART(AM(N)) * NCART(AM(P)) * NCART(AM(Q))
+//   *ERI  : Pointer to the calculated block, size 
+//           NCART(AM(M)) * NCART(AM(N)) * NCART(AM(P)) * NCART(AM(Q))
+//   *nint : 0 if simint is not initialized, otherwise == 
+//           NCART(AM(M)) * NCART(AM(N)) * NCART(AM(P)) * NCART(AM(Q))
 void CMS_Simint_calc_shellquartet(
     Simint_t simint, int tid, int M, int N, 
     int P, int Q, double **ERI, int *nint
+);
+
+// Calculate a shell quartet (M,N|M,N) for screening
+// Input parameters:
+//   simint     : Initialized Simint structure
+//   tid        : Thread ID
+//   M, N       : Shell indices
+//   *multi_sp_ : Pointer to thread-private initialized simint_multi_shellpair structure
+// Output parameters:
+//   *ERI  : Pointer to the calculated block, size 
+//           NCART(AM(M)) * NCART(AM(N)) * NCART(AM(M)) * NCART(AM(N))
+//   *nint : 0 if simint is not initialized, otherwise == 
+//           NCART(AM(M)) * NCART(AM(N)) * NCART(AM(M)) * NCART(AM(N))  
+void CMS_Simint_calc_MNMN_shellquartet(
+    Simint_t simint, int tid, int M, int N, 
+    void **multi_sp_, double **ERI, int *nint
 );
 
 // Calculate a batch of shell quartets (M,N|P_list[i],Q_list[i])
