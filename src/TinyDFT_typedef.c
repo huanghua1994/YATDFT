@@ -529,7 +529,7 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
         sqrt(shell_scrtol2), TinyDFT->shell_scr_time
     );
     printf(
-        "Screened unique shell pairs: %d out of %d (sparsity = %.2lf%%)\n", 
+        "Screened unique shell pairs: %d out of %d (density = %.2lf%%)\n", 
         num_valid_sp, num_total_sp, 100.0 * (double) num_valid_sp / (double) num_total_sp
     );
 }

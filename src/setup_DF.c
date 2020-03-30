@@ -180,7 +180,7 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
         bf_mask_displs[i + 1] = bf_pair_nnz;
     }
     
-    double bf_pair_sparsity = 100.0 * (double) bf_pair_nnz / (double) mat_size;
+    double bf_pair_density = 100.0 * (double) bf_pair_nnz / (double) mat_size;
     
     double et = get_wtime_sec();
     double ut = et - st;
@@ -211,7 +211,7 @@ static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
     
     printf("TinyDFT DF memory allocation over, elapsed time = %.3lf (s)\n", ut);
     printf("DF storage & auxiliary work buffer = %.2lf, %.2lf MB\n", df_tensor_MB, axu_array_MB);
-    printf("DF screened basis function pairs: %d out of %d (sparsity = %.2lf%%)\n", bf_pair_nnz, mat_size, bf_pair_sparsity);
+    printf("DF screened basis function pairs: %d out of %d (density = %.2lf%%)\n", bf_pair_nnz, mat_size, bf_pair_density);
 }
 
 static void copy_3center_integral_results(
@@ -442,12 +442,41 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
     free_aligned(tmp_mat1);
     free_aligned(df_eigval);
     */
+    
+    size_t df_nbf2 = df_nbf * df_nbf;
+    size_t df_mat_msize = DBL_MSIZE * df_nbf2;
+    double *Jpq_invsqrt = malloc_aligned(df_mat_msize, 64);
+    assert(Jpq_invsqrt != NULL);
+    #pragma omp for
+    for (int i = 0; i < df_nbf2; i++) Jpq_invsqrt[i] = Jpq[i];
+    LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', df_nbf, Jpq_invsqrt, df_nbf);
+    LAPACKE_dtrtri(LAPACK_ROW_MAJOR, 'L', 'N', df_nbf, Jpq_invsqrt, df_nbf);
+    double min_diag = 19241112;
+    #pragma omp parallel for schedule(dynamic) reduction(min: min_diag)
+    for (int i = 0; i < df_nbf; i++)
+    {
+        size_t idx_ii = i * df_nbf + i;
+        if (min_diag > Jpq_invsqrt[idx_ii]) min_diag = Jpq_invsqrt[idx_ii];
+        for (int j = i + 1; j < df_nbf; j++)
+        {
+            size_t idx0 = i * df_nbf + j;
+            size_t idx1 = j * df_nbf + i;
+            Jpq_invsqrt[idx0] = Jpq_invsqrt[idx1];
+            Jpq_invsqrt[idx1] = 0.0;
+        }
+    }
+    if (min_diag > 1e-12)
+    {
+        free_aligned(Jpq);
+        TinyDFT->Jpq = Jpq_invsqrt;
+        return;
+    } else {
+        printf("Density fitting: chol(Jpq) has diagonal elements < 1e-12, switching to pivoted incomplete Cholesky\n");
+    }
 
     int rank;
-    size_t df_mat_msize = DBL_MSIZE * df_nbf * df_nbf;
     int *piv = (int*) malloc(sizeof(int) * df_nbf);
-    double *Jpq_invsqrt = malloc_aligned(df_mat_msize, 64);
-    assert(Jpq_invsqrt != NULL && piv != NULL);
+    assert(piv != NULL);
     // Pivoted Cholesky decomposition P^T * Jpq * P = L * L^T
     LAPACKE_dpstrf(LAPACK_ROW_MAJOR, 'L', df_nbf, Jpq, df_nbf, piv, &rank, 1e-12);
     // Calculate L1^{-T}, L1 only contains the factorized part of L
@@ -457,8 +486,8 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
     {
         for (int j = i + 1; j < rank; j++)
         {
-            int idx0 = i * df_nbf + j;
-            int idx1 = j * df_nbf + i;
+            size_t idx0 = i * df_nbf + j;
+            size_t idx1 = j * df_nbf + i;
             Jpq[idx0] = Jpq[idx1];
             Jpq[idx1] = 0.0;
         }
@@ -467,7 +496,7 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
     #pragma omp parallel
     {
         #pragma omp for
-        for (int i = 0; i < df_nbf * df_nbf; i++) Jpq_invsqrt[i] = 0.0;
+        for (size_t i = 0; i < df_nbf2; i++) Jpq_invsqrt[i] = 0.0;
         
         #pragma omp for
         for (int k = 0; k < rank; k++)
