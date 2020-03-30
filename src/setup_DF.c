@@ -417,9 +417,12 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
     // Diagonalize Jpq = U * S * U^T, the eigenvectors are stored in tmp_mat0
     memcpy(tmp_mat0, Jpq, df_mat_msize);
     LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', df_nbf, tmp_mat0, df_nbf, df_eigval);
-    // Apply inverse square root to eigen values to get the inverse squart root of Jpq
+    // Apply inverse square root to eigenvalues to get the inverse square root of Jpq
     for (int i = 0; i < df_nbf; i++)
-        df_eigval[i] = 1.0 / sqrt(df_eigval[i]);
+    {
+        if (df_eigval[i] > 1e-14) df_eigval[i] = 1.0 / sqrt(df_eigval[i]);
+        else df_eigval[i] = 0.0;
+    }
     // Right multiply the S^{-1/2} to U
     #pragma omp parallel for
     for (int irow = 0; irow < df_nbf; irow++)
@@ -440,12 +443,19 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
     free_aligned(df_eigval);
     */
 
-    LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', df_nbf, Jpq, df_nbf);
-    LAPACKE_dtrtri(LAPACK_ROW_MAJOR, 'L', 'N', df_nbf, Jpq, df_nbf);
+    int rank;
+    size_t df_mat_msize = DBL_MSIZE * df_nbf * df_nbf;
+    int *piv = (int*) malloc(sizeof(int) * df_nbf);
+    double *Jpq_invsqrt = malloc_aligned(df_mat_msize, 64);
+    assert(Jpq_invsqrt != NULL && piv != NULL);
+    // Pivoted Cholesky decomposition P^T * Jpq * P = L * L^T
+    LAPACKE_dpstrf(LAPACK_ROW_MAJOR, 'L', df_nbf, Jpq, df_nbf, piv, &rank, 1e-12);
+    // Calculate L1^{-T}, L1 only contains the factorized part of L
+    LAPACKE_dtrtri(LAPACK_ROW_MAJOR, 'L', 'N', rank, Jpq, df_nbf); 
     #pragma omp parallel for schedule(dynamic)
-    for (int i = 0; i < df_nbf; i++)
+    for (int i = 0; i < rank; i++)
     {
-        for (int j = i+1; j < df_nbf; j++)
+        for (int j = i + 1; j < rank; j++)
         {
             int idx0 = i * df_nbf + j;
             int idx1 = j * df_nbf + i;
@@ -453,6 +463,23 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
             Jpq[idx1] = 0.0;
         }
     }
+    // Calculate P * [L_{1}^{-T} 0; 0 0]
+    #pragma omp parallel
+    {
+        #pragma omp for
+        for (int i = 0; i < df_nbf * df_nbf; i++) Jpq_invsqrt[i] = 0.0;
+        
+        #pragma omp for
+        for (int k = 0; k < rank; k++)
+        {
+            double *src = Jpq + k * df_nbf;
+            double *dst = Jpq_invsqrt + (piv[k] - 1) * df_nbf;
+            memcpy(dst, src, sizeof(double) * rank);
+        }
+    }
+    free_aligned(Jpq);
+    free(piv);
+    TinyDFT->Jpq = Jpq_invsqrt;
 }
 
 static void TinyDFT_build_DF_tensor(TinyDFT_t TinyDFT)
