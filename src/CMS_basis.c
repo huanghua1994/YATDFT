@@ -333,11 +333,8 @@ CMSStatus_t CMS_import_molecule(char *file, BasisSet_t basis)
     basis->zn = (double *)malloc (sizeof(double) * basis->natoms);
     basis->charge = (double *)malloc (sizeof(double) * basis->natoms); 
     basis->eid = (int *)malloc (sizeof(int) * basis->natoms);
-    if (NULL == basis->xn ||
-        NULL == basis->yn ||
-        NULL == basis->zn ||
-        NULL == basis->charge ||
-        NULL == basis->eid)
+    if (NULL == basis->xn || NULL == basis->yn || NULL == basis->zn ||
+        NULL == basis->charge || NULL == basis->eid)
     {
         CMS_PRINTF (1, "memory allocation failed\n");
         return CMS_STATUS_ALLOC_FAILED;
@@ -379,6 +376,7 @@ CMSStatus_t CMS_import_molecule(char *file, BasisSet_t basis)
             nelectrons += basis->eid[natoms];
             natoms++;
         }
+        if (natoms == basis->natoms) break;  // Skip blank rows in the end
     }
     basis->nelectrons = nelectrons;
     if (natoms != basis->natoms)
@@ -397,7 +395,7 @@ CMSStatus_t CMS_import_molecule(char *file, BasisSet_t basis)
             double dx = basis->xn[A] - basis->xn[B];
             double dy = basis->yn[A] - basis->yn[B];
             double dz = basis->zn[A] - basis->zn[B];
-            double R = sqrt(dx * dx + dy * dy + dz * dz);
+            double R  = sqrt(dx * dx + dy * dy + dz * dz);
             ene += basis->charge[A] * basis->charge[B] / R;
         }
     }
