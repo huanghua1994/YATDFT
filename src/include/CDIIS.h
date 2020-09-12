@@ -21,7 +21,7 @@ extern "C" {
 //   F_mat   : Fock matrix
 // Output parameter:
 //   F_mat : CDIIS processed X^T * F * X 
-void TinyDFT_CDIIS(TinyDFT_t TinyDFT, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat);
+void TinyDFT_CDIIS(TinyDFT_p TinyDFT, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat);
 
 #ifdef __cplusplus
 }

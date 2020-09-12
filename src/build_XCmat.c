@@ -22,13 +22,13 @@
 //   TinyDFT : Initialized TinyDFT structure
 // Output parameters:
 //   TinyDFT : TinyDFT structure with Flattened basis function
-static void TinyDFT_flatten_shell_info_to_bf(TinyDFT_t TinyDFT)
+static void TinyDFT_flatten_shell_info_to_bf(TinyDFT_p TinyDFT)
 {
     int natom  = TinyDFT->natom;
     int nshell = TinyDFT->nshell;
     int nbf    = TinyDFT->nbf;
-    BasisSet_t basis  = TinyDFT->basis;
-    Simint_t   simint = TinyDFT->simint;
+    BasisSet_p basis  = TinyDFT->basis;
+    Simint_p   simint = TinyDFT->simint;
     
     // Allocate memory for flattened Gaussian basis function and atom info 
     // used only in XC calculation
@@ -104,7 +104,7 @@ static void TinyDFT_flatten_shell_info_to_bf(TinyDFT_t TinyDFT)
 }
 
 // Set up exchange-correlation numerical integral environments
-void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char *cf_str)
+void TinyDFT_setup_XC_integral(TinyDFT_p TinyDFT, const char *xf_str, const char *cf_str)
 {
     TinyDFT_flatten_shell_info_to_bf(TinyDFT);
     
@@ -698,7 +698,7 @@ static void TinyDFT_build_XC_GGA_partial(
 }
 
 // Construct DFT exchange-correlation matrix
-double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_mat)
+double TinyDFT_build_XC_mat(TinyDFT_p TinyDFT, const double *D_mat, double *XC_mat)
 { 
     int    nbf        = TinyDFT->nbf;
     int    xf_id      = TinyDFT->xf_id;

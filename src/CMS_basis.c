@@ -51,7 +51,7 @@ static char mtable[SLEN] = {'S',  'P', 'D', 'F', 'G'};
  * Recognizes shells with zero orbital exponent.
  * Code is a good example of looping through elements of a basis set.
  */
-static void normalization(BasisSet_t basis)
+static void normalization(BasisSet_p basis)
 {
     double sum;
     double temp;
@@ -124,10 +124,10 @@ static inline double vector_min(size_t length, const double vector[restrict stat
     return result;
 }
 
-CMSStatus_t CMS_createBasisSet(BasisSet_t *_basis)
+CMSStatus_t CMS_createBasisSet(BasisSet_p *_basis)
 {
-    BasisSet_t basis;
-    basis = (BasisSet_t) malloc(sizeof(struct BasisSet));
+    BasisSet_p basis;
+    basis = (BasisSet_p) malloc(sizeof(struct BasisSet));
     CMS_ASSERT(basis != NULL);
     memset(basis, 0, sizeof(struct BasisSet));
 
@@ -135,7 +135,7 @@ CMSStatus_t CMS_createBasisSet(BasisSet_t *_basis)
     return CMS_STATUS_SUCCESS;
 }
 
-CMSStatus_t CMS_destroyBasisSet(BasisSet_t basis)
+CMSStatus_t CMS_destroyBasisSet(BasisSet_p basis)
 {
     free(basis->f_start_id);
     free(basis->f_end_id);
@@ -176,7 +176,7 @@ CMSStatus_t CMS_destroyBasisSet(BasisSet_t basis)
 
 
 // Create the data structure of the shells for the given molecule.
-CMSStatus_t CMS_parse_molecule(BasisSet_t basis)
+CMSStatus_t CMS_parse_molecule(BasisSet_p basis)
 {
     int natoms;
     int nshells;   
@@ -281,7 +281,7 @@ CMSStatus_t CMS_parse_molecule(BasisSet_t basis)
     return CMS_STATUS_SUCCESS;
 }
 
-/* Read the xyz file and put data into the BasisSet_t structure.
+/* Read the xyz file and put data into the BasisSet_p structure.
  * 
  * Net charge is read from comment line of xyz file.
  * Atom positions are converted from Angstroms to Bohr.
@@ -290,7 +290,7 @@ CMSStatus_t CMS_parse_molecule(BasisSet_t basis)
  * Nuclear energy is computed and stored in basis->ene_nuc;
  * Warning: check that your xyz file does not use Fortran scientific notation.
  */
-CMSStatus_t CMS_import_molecule(char *file, BasisSet_t basis)
+CMSStatus_t CMS_import_molecule(char *file, BasisSet_p basis)
 {
     FILE *fp;
     char line[1024];
@@ -417,7 +417,7 @@ CMSStatus_t CMS_import_molecule(char *file, BasisSet_t basis)
  *
  * Handle sp shells by splitting them into separate s and p shells
  */
-CMSStatus_t CMS_import_basis(char *file, BasisSet_t basis)
+CMSStatus_t CMS_import_basis(char *file, BasisSet_p basis)
 {
     FILE *fp;
     char line[1024];
@@ -635,7 +635,7 @@ CMSStatus_t CMS_import_basis(char *file, BasisSet_t basis)
  * found (e.g., does not match number of functions because it is for a 
  * different basis set), then a zero initial guess for that atom is used.
  */
-CMSStatus_t CMS_import_guess(char *file, BasisSet_t basis)
+CMSStatus_t CMS_import_guess(char *file, BasisSet_p basis)
 {
     char *dir;
     if (file != NULL) {
@@ -726,7 +726,7 @@ end:
     return CMS_STATUS_SUCCESS;
 }
 
-CMSStatus_t CMS_loadChemicalSystem(BasisSet_t basis, char *bsfile, char *molfile)
+CMSStatus_t CMS_loadChemicalSystem(BasisSet_p basis, char *bsfile, char *molfile)
 {
     CMSStatus_t status;
 
@@ -751,87 +751,87 @@ CMSStatus_t CMS_loadChemicalSystem(BasisSet_t basis, char *bsfile, char *molfile
     return CMS_STATUS_SUCCESS;
 }
 
-int CMS_getNumAtoms(BasisSet_t basis)
+int CMS_getNumAtoms(BasisSet_p basis)
 {
     return basis->natoms;
 }
 
-int CMS_getNumShells(BasisSet_t basis)
+int CMS_getNumShells(BasisSet_p basis)
 {
     return basis->nshells;
 }
 
-int CMS_getNumFuncs(BasisSet_t basis)
+int CMS_getNumFuncs(BasisSet_p basis)
 {
     return basis->nfunctions;
 }
 
-int CMS_getNumOccOrb(BasisSet_t basis)
+int CMS_getNumOccOrb(BasisSet_p basis)
 {
     return ((basis->nelectrons - basis->Q)/2);
 }
 
-int CMS_getFuncStartInd(BasisSet_t basis, int shellid)
+int CMS_getFuncStartInd(BasisSet_p basis, int shellid)
 {
     return basis->f_start_id[shellid];
 }
 
-int CMS_getFuncEndInd(BasisSet_t basis, int shellid)
+int CMS_getFuncEndInd(BasisSet_p basis, int shellid)
 {
     return basis->f_end_id[shellid];
 }
 
-int CMS_getShellDim(BasisSet_t basis, int shellid)
+int CMS_getShellDim(BasisSet_p basis, int shellid)
 {
     return (basis->f_end_id[shellid] - basis->f_start_id[shellid] + 1);
 }
 
-int CMS_getMaxShellDim(BasisSet_t basis)
+int CMS_getMaxShellDim(BasisSet_p basis)
 {
     return basis->maxdim;
 }
 
-int CMS_getAtomStartInd(BasisSet_t basis, int atomid)
+int CMS_getAtomStartInd(BasisSet_p basis, int atomid)
 {
     return basis->s_start_id[atomid];
 }
 
-int CMS_getAtomEndInd(BasisSet_t basis, int atomid)
+int CMS_getAtomEndInd(BasisSet_p basis, int atomid)
 {
     return basis->s_start_id[atomid + 1] - 1;
 }
 
-int CMS_getTotalCharge(BasisSet_t basis)
+int CMS_getTotalCharge(BasisSet_p basis)
 {
     return basis->Q;
 }
 
-int CMS_getNneutral(BasisSet_t basis)
+int CMS_getNneutral(BasisSet_p basis)
 {
     return basis->nelectrons;
 }
 
-int CMS_getMaxMomentum(BasisSet_t basis)
+int CMS_getMaxMomentum(BasisSet_p basis)
 {
     return basis->max_momentum;
 }
 
-int CMS_getMaxPrimid(BasisSet_t basis)
+int CMS_getMaxPrimid(BasisSet_p basis)
 {
     return basis->max_nexp_id;
 }
 
-int CMS_getMaxnumExp(BasisSet_t basis)
+int CMS_getMaxnumExp(BasisSet_p basis)
 {
     return basis->max_nexp;   
 }
 
-double CMS_getNucEnergy(BasisSet_t basis)
+double CMS_getNucEnergy(BasisSet_p basis)
 {
     return basis->ene_nuc;
 }
 
-void CMS_getInitialGuess(BasisSet_t basis, int atomid, double **guess, int *spos, int *epos)
+void CMS_getInitialGuess(BasisSet_p basis, int atomid, double **guess, int *spos, int *epos)
 {
     const int eid = basis->eid[atomid] - 1;
     const int start_shell = basis->s_start_id[atomid];
@@ -841,7 +841,7 @@ void CMS_getInitialGuess(BasisSet_t basis, int atomid, double **guess, int *spos
     *epos  = basis->f_end_id[end_shell - 1];
 }
 
-void CMS_getShellxyz(BasisSet_t basis, int shellid, double *x, double *y, double *z)
+void CMS_getShellxyz(BasisSet_p basis, int shellid, double *x, double *y, double *z)
 {
     *x = basis->xyz0[shellid*4 + 0];
     *y = basis->xyz0[shellid*4 + 1];

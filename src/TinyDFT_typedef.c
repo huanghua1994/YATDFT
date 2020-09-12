@@ -25,11 +25,11 @@
 //   TinyDFT : Initialized TinyDFT structure
 // Output parameters:
 //   TinyDFT : TinyDFT structure with screening info
-static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT);
+static void TinyDFT_screen_shell_quartets(TinyDFT_p TinyDFT);
 
-void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
+void TinyDFT_init(TinyDFT_p *TinyDFT_, char *bas_fname, char *xyz_fname)
 {
-    TinyDFT_t TinyDFT = (TinyDFT_t) malloc(sizeof(struct TinyDFT_struct));
+    TinyDFT_p TinyDFT = (TinyDFT_p) malloc(sizeof(struct TinyDFT_struct));
     assert(TinyDFT != NULL);
     
     double st = get_wtime_sec();
@@ -270,9 +270,9 @@ void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname)
     *TinyDFT_ = TinyDFT;
 }
 
-void TinyDFT_destroy(TinyDFT_t *_TinyDFT)
+void TinyDFT_destroy(TinyDFT_p *_TinyDFT)
 {
-    TinyDFT_t TinyDFT = *_TinyDFT;
+    TinyDFT_p TinyDFT = *_TinyDFT;
     assert(TinyDFT != NULL);
     
     printf("TinyDFT total memory usage = %.2lf MB\n", TinyDFT->mem_size / 1048576.0);
@@ -408,7 +408,7 @@ static void quickSort(int *M, int *N, int l, int r)
     if (j > l) quickSort(M, N, l, j);
 }
 
-static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
+static void TinyDFT_screen_shell_quartets(TinyDFT_p TinyDFT)
 {
     assert(TinyDFT != NULL);
     
@@ -421,7 +421,7 @@ static void TinyDFT_screen_shell_quartets(TinyDFT_t TinyDFT)
     double shell_scrtol2   = TinyDFT->shell_scrtol2;
     double *sp_scrval      = TinyDFT->sp_scrval;
     double *bf_pair_scrval = TinyDFT->bf_pair_scrval;
-    Simint_t simint        = TinyDFT->simint;
+    Simint_p simint        = TinyDFT->simint;
     
     double st = get_wtime_sec();
     

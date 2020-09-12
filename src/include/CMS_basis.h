@@ -56,60 +56,60 @@ struct BasisSet
     char str_buf[512];
 };
 
-typedef struct BasisSet *BasisSet_t;
+typedef struct BasisSet *BasisSet_p;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-CMSStatus_t CMS_createBasisSet(BasisSet_t *basis);
+CMSStatus_t CMS_createBasisSet(BasisSet_p *basis);
 
-CMSStatus_t CMS_destroyBasisSet(BasisSet_t basis);
+CMSStatus_t CMS_destroyBasisSet(BasisSet_p basis);
 
-CMSStatus_t CMS_loadChemicalSystem(BasisSet_t basis, char *bsfile, char *xyzfile );
+CMSStatus_t CMS_loadChemicalSystem(BasisSet_p basis, char *bsfile, char *xyzfile );
 
-int CMS_getNumAtoms(BasisSet_t basis);
+int CMS_getNumAtoms(BasisSet_p basis);
 
-int CMS_getNumShells(BasisSet_t basis);
+int CMS_getNumShells(BasisSet_p basis);
 
-int CMS_getNumFuncs(BasisSet_t basis);
+int CMS_getNumFuncs(BasisSet_p basis);
 
-int CMS_getNumOccOrb(BasisSet_t basis);
+int CMS_getNumOccOrb(BasisSet_p basis);
 
-int CMS_getFuncStartInd(BasisSet_t basis, int shellid);
+int CMS_getFuncStartInd(BasisSet_p basis, int shellid);
 
-int CMS_getFuncEndInd(BasisSet_t basis, int shellid);
+int CMS_getFuncEndInd(BasisSet_p basis, int shellid);
 
-int CMS_getShellDim(BasisSet_t basis, int shellid);
+int CMS_getShellDim(BasisSet_p basis, int shellid);
 
-int CMS_getMaxShellDim(BasisSet_t basis);
+int CMS_getMaxShellDim(BasisSet_p basis);
 
-int CMS_getAtomStartInd(BasisSet_t basis, int atomid);
+int CMS_getAtomStartInd(BasisSet_p basis, int atomid);
 
-int CMS_getAtomEndInd(BasisSet_t basis, int atomid);
+int CMS_getAtomEndInd(BasisSet_p basis, int atomid);
 
-int CMS_getTotalCharge(BasisSet_t basis);
+int CMS_getTotalCharge(BasisSet_p basis);
 
-int CMS_getNneutral(BasisSet_t basis);
+int CMS_getNneutral(BasisSet_p basis);
 
-int CMS_getMaxMomentum(BasisSet_t basis);
+int CMS_getMaxMomentum(BasisSet_p basis);
 
-int CMS_getMaxPrimid(BasisSet_t basis);
+int CMS_getMaxPrimid(BasisSet_p basis);
 
-int CMS_getMaxnumExp(BasisSet_t basis);
+int CMS_getMaxnumExp(BasisSet_p basis);
 
-double CMS_getNucEnergy(BasisSet_t basis);
+double CMS_getNucEnergy(BasisSet_p basis);
 
-void CMS_getInitialGuess(BasisSet_t basis, int atomid, double **guess, int *spos, int *epos);
+void CMS_getInitialGuess(BasisSet_p basis, int atomid, double **guess, int *spos, int *epos);
 
-void CMS_getShellxyz(BasisSet_t basis, int shellid, double *x, double *y, double *z);
+void CMS_getShellxyz(BasisSet_p basis, int shellid, double *x, double *y, double *z);
 
 // The following 4 functions are called by CMS_loadBasisSet, be careful and make sure you 
 // understand what you are doing if you want to call any of them from external program
-CMSStatus_t CMS_import_molecule(char *file, BasisSet_t basis);
-CMSStatus_t CMS_import_basis(char *file, BasisSet_t basis);
-CMSStatus_t CMS_parse_molecule(BasisSet_t basis);
-CMSStatus_t CMS_import_guess(char *file, BasisSet_t basis);
+CMSStatus_t CMS_import_molecule(char *file, BasisSet_p basis);
+CMSStatus_t CMS_import_basis(char *file, BasisSet_p basis);
+CMSStatus_t CMS_parse_molecule(BasisSet_p basis);
+CMSStatus_t CMS_import_guess(char *file, BasisSet_p basis);
 
 #ifdef __cplusplus
 }

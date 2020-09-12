@@ -344,7 +344,7 @@ void acc_Kmat(ACC_JKMAT_IN_PARAM)
                         FM_strip_buf, FM_strip_offset, FN_strip_buf, FN_strip_offset
 
 void acc_JKmat_with_ket_sp_list(
-    TinyDFT_t TinyDFT, int tid, int M, int N, int npair, int *P_list, int *Q_list, 
+    TinyDFT_p TinyDFT, int tid, int M, int N, int npair, int *P_list, int *Q_list, 
     double *ERIs, int nints, double *FM_strip_buf, double *FN_strip_buf,
     int *Mpair_flag, int *Npair_flag, int build_J, int build_K
 )

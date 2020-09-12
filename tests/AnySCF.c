@@ -24,7 +24,7 @@ void save_mat_to_file(
     printf("Binary file %s output finished\n", ouf_name);
 }
 
-void TinyDFT_SCF(TinyDFT_t TinyDFT, const int max_iter, int J_op, int K_op)
+void TinyDFT_SCF(TinyDFT_p TinyDFT, const int max_iter, int J_op, int K_op)
 {
     // Start SCF iterations
     printf("Self-Consistent Field iteration started...\n");
@@ -244,7 +244,7 @@ int main(int argc, char **argv)
     if (K_op == 2) printf("DFT XC\n");
     
     // Initialize TinyDFT
-    TinyDFT_t TinyDFT;
+    TinyDFT_p TinyDFT;
     TinyDFT_init(&TinyDFT, argv[1], argv[2]);
     
     // Compute constant matrices and get initial guess for D

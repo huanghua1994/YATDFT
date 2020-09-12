@@ -12,7 +12,7 @@
 #include "TinyDFT_typedef.h"
 #include "build_Dmat.h"
 
-void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat)
+void TinyDFT_build_Dmat_SAD(TinyDFT_p TinyDFT, double *D_mat)
 {
     assert(TinyDFT != NULL);
     
@@ -21,7 +21,7 @@ void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat)
     int electron = TinyDFT->electron;
     int nbf      = TinyDFT->nbf;
     int mat_size = TinyDFT->mat_size;
-    BasisSet_t basis = TinyDFT->basis;
+    BasisSet_p basis = TinyDFT->basis;
     
     memset(D_mat, 0, DBL_MSIZE * mat_size);
     
@@ -32,7 +32,7 @@ void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat)
         CMS_getInitialGuess(basis, i, &guess, &spos, &epos);
         ldg = epos - spos + 1;
         double *D_mat_ptr = D_mat + spos * nbf + spos;
-        copy_dbl_mat_blk(guess, ldg, ldg, ldg, D_mat_ptr, nbf);
+        copy_matrix_block(sizeof(double), ldg, ldg, guess, ldg, D_mat_ptr, nbf);
     }
     
     // Scaling the initial density matrix according to the charge and neutral
@@ -43,7 +43,7 @@ void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat)
     for (int i = 0; i < mat_size; i++) D_mat[i] *= R;
 }
 
-void TinyDFT_build_Cocc_from_Dmat(TinyDFT_t TinyDFT, const double *D_mat, double *Cocc_mat)
+void TinyDFT_build_Cocc_from_Dmat(TinyDFT_p TinyDFT, const double *D_mat, double *Cocc_mat)
 {
     int    nbf       = TinyDFT->nbf;
     int    n_occ     = TinyDFT->n_occ;
@@ -106,7 +106,7 @@ static void quickSort(double *eigval, int *ev_idx, int l, int r)
     if (j > l) quickSort(eigval, ev_idx, l, j);
 }
 
-void TinyDFT_build_Dmat_eig(TinyDFT_t TinyDFT, const double *F_mat, const double *X_mat, double *D_mat, double *Cocc_mat)
+void TinyDFT_build_Dmat_eig(TinyDFT_p TinyDFT, const double *F_mat, const double *X_mat, double *D_mat, double *Cocc_mat)
 {
     int    nbf       = TinyDFT->nbf;
     int    n_occ     = TinyDFT->n_occ;

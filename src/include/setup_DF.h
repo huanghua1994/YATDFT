@@ -19,7 +19,7 @@ extern "C" {
 //                  otherwise --> use more memory in DF to get better performance
 // Output parameter:
 //   TinyDFT : TinyDFT structure with initialized DF data structures
-void TinyDFT_setup_DF(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname, const int save_mem);
+void TinyDFT_setup_DF(TinyDFT_p TinyDFT, char *df_bas_fname, char *xyz_fname, const int save_mem);
 
 #ifdef __cplusplus
 }

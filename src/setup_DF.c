@@ -10,7 +10,7 @@
 #include "TinyDFT_typedef.h"
 #include "setup_DF.h"
 
-static void TinyDFT_load_DF_basis(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname, const int save_mem)
+static void TinyDFT_load_DF_basis(TinyDFT_p TinyDFT, char *df_bas_fname, char *xyz_fname, const int save_mem)
 {
     int nthread = TinyDFT->nthread;
     CMS_createBasisSet(&(TinyDFT->df_basis));
@@ -78,7 +78,7 @@ static void TinyDFT_load_DF_basis(TinyDFT_t TinyDFT, char *df_bas_fname, char *x
     TinyDFT->df_tensor = NULL;
 }
 
-static void TinyDFT_init_batch_dgemm(TinyDFT_t TinyDFT)
+static void TinyDFT_init_batch_dgemm(TinyDFT_p TinyDFT)
 {
     #define DGEMM_BLK_SIZE 64
     
@@ -133,7 +133,7 @@ static void TinyDFT_init_batch_dgemm(TinyDFT_t TinyDFT)
     TinyDFT->mem_size += (double) (DBL_MSIZE * nbf * 5);
 }
 
-static void TinyDFT_prepare_DF_sparsity(TinyDFT_t TinyDFT)
+static void TinyDFT_prepare_DF_sparsity(TinyDFT_p TinyDFT)
 {
     double st = get_wtime_sec();
     
@@ -249,7 +249,7 @@ static void copy_3center_integral_results(
     }
 }
 
-static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
+static void TinyDFT_calc_DF_3center_int(TinyDFT_p TinyDFT)
 {
     int    nbf               = TinyDFT->nbf;
     int    nthread           = TinyDFT->nthread;
@@ -268,7 +268,7 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
     double *pqA              = TinyDFT->pqA;
     double *sp_scrval        = TinyDFT->sp_scrval;
     double *df_sp_scrval     = TinyDFT->df_sp_scrval;
-    Simint_t simint          = TinyDFT->simint;
+    Simint_p simint          = TinyDFT->simint;
     
     int *P_lists = (int*) malloc(sizeof(int) * _SIMINT_NSHELL_SIMD * nthread);
     assert(P_lists != NULL);
@@ -351,7 +351,7 @@ static void TinyDFT_calc_DF_3center_int(TinyDFT_t TinyDFT)
     free(P_lists);
 }
 
-static void TinyDFT_calc_DF_2center_int(TinyDFT_t TinyDFT)
+static void TinyDFT_calc_DF_2center_int(TinyDFT_p TinyDFT)
 {
     // Fast enough, need not to batch shell quartets
     int    df_nbf            = TinyDFT->df_nbf;
@@ -360,7 +360,7 @@ static void TinyDFT_calc_DF_2center_int(TinyDFT_t TinyDFT)
     double scrtol2           = TinyDFT->shell_scrtol2;
     double *Jpq              = TinyDFT->Jpq;
     double *df_sp_scrval     = TinyDFT->df_sp_scrval;
-    Simint_t simint          = TinyDFT->simint;
+    Simint_p simint          = TinyDFT->simint;
     
     #pragma omp parallel
     {
@@ -402,7 +402,7 @@ static void TinyDFT_calc_DF_2center_int(TinyDFT_t TinyDFT)
     }  // #pragma omp parallel
 }
 
-static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
+static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_p TinyDFT)
 {
     int    df_nbf = TinyDFT->df_nbf;
     double *Jpq   = TinyDFT->Jpq;
@@ -511,7 +511,7 @@ static void TinyDFT_calc_invsqrt_Jpq(TinyDFT_t TinyDFT)
     TinyDFT->Jpq = Jpq_invsqrt;
 }
 
-static void TinyDFT_build_DF_tensor(TinyDFT_t TinyDFT)
+static void TinyDFT_build_DF_tensor(TinyDFT_p TinyDFT)
 {
     double st, et;
 
@@ -580,7 +580,7 @@ static void TinyDFT_build_DF_tensor(TinyDFT_t TinyDFT)
 }
 
 // Set up density fitting
-void TinyDFT_setup_DF(TinyDFT_t TinyDFT, char *df_bas_fname, char *xyz_fname, const int save_mem)
+void TinyDFT_setup_DF(TinyDFT_p TinyDFT, char *df_bas_fname, char *xyz_fname, const int save_mem)
 {
     assert(TinyDFT != NULL);
     

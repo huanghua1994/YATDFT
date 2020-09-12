@@ -33,7 +33,7 @@ void TinyDFT_reduce_temp_J(double *temp_J, double *temp_J_thread, int len, int t
 // Build temporary array for J matrix and form J matrix
 // Low flop-per-byte ratio: access: nbf^2 * (df_nbf+1), compute: nbf^2 * df_nbf 
 // Note: the J_mat is not completed, the symmetrizing is done later
-static void TinyDFT_build_Jmat_DF(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, double *temp_J_t, double *J_mat_t)
+static void TinyDFT_build_Jmat_DF(TinyDFT_p TinyDFT, const double *D_mat, double *J_mat, double *temp_J_t, double *J_mat_t)
 {
     int    nbf             = TinyDFT->nbf;
     int    df_nbf          = TinyDFT->df_nbf;
@@ -124,7 +124,7 @@ static void TinyDFT_build_Jmat_DF(TinyDFT_t TinyDFT, const double *D_mat, double
     *J_mat_t  = t2 - t1;
 }
 
-static void TinyDFT_set_batch_dgemm_temp_K(TinyDFT_t TinyDFT)
+static void TinyDFT_set_batch_dgemm_temp_K(TinyDFT_p TinyDFT)
 {
     int    nbf             = TinyDFT->nbf;
     int    df_nbf          = TinyDFT->df_nbf;
@@ -164,7 +164,7 @@ static void TinyDFT_set_batch_dgemm_temp_K(TinyDFT_t TinyDFT)
     }
 }
 
-static void TinyDFT_set_batch_dgemm_K(TinyDFT_t TinyDFT, double *K_mat)
+static void TinyDFT_set_batch_dgemm_K(TinyDFT_p TinyDFT, double *K_mat)
 {
     int nbf      = TinyDFT->nbf;
     int df_nbf   = TinyDFT->df_nbf;
@@ -280,7 +280,7 @@ void cblas_dgemm_batch(
 // Build temporary tensor for K matrix and form K matrix using Cocc matrix
 // High flop-per-byte ratio: access: nbf * df_nbf * (nbf + n_occ) , compute: nbf^2 * df_nbf * n_occ
 // Note: the K_mat is not completed, the symmetrizing is done later
-static void TinyDFT_build_Kmat_DF(TinyDFT_t TinyDFT, const double *Cocc_mat, double *K_mat, double *temp_K_t, double *K_mat_t)
+static void TinyDFT_build_Kmat_DF(TinyDFT_p TinyDFT, const double *Cocc_mat, double *K_mat, double *temp_K_t, double *K_mat_t)
 {
     int    nbf             = TinyDFT->nbf;
     int    df_nbf          = TinyDFT->df_nbf;
@@ -380,7 +380,7 @@ static void TinyDFT_build_Kmat_DF(TinyDFT_t TinyDFT, const double *Cocc_mat, dou
     *K_mat_t  = t2 - t1;
 }
 
-void TinyDFT_build_JKmat_DF(TinyDFT_t TinyDFT, const double *D_mat, const double *Cocc_mat, double *J_mat, double *K_mat)
+void TinyDFT_build_JKmat_DF(TinyDFT_p TinyDFT, const double *D_mat, const double *Cocc_mat, double *J_mat, double *K_mat)
 {
     if (J_mat == NULL && K_mat == NULL) return;
     

@@ -14,7 +14,7 @@ typedef struct
     int *P_list, *Q_list;
 } KetShellpairList;
 
-typedef KetShellpairList* KetShellpairList_t;
+typedef KetShellpairList* KetShellpairList_p;
 
 typedef struct 
 {
@@ -25,18 +25,18 @@ typedef struct
     int *bufptr;
 } ThreadKetShellpairLists;
 
-typedef ThreadKetShellpairLists* ThreadKetShellpairLists_t;
+typedef ThreadKetShellpairLists* ThreadKetShellpairLists_p;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 // Initialize a KetShellpairList with a given buffer for storing P_list and Q_list
-void init_KetShellpairList_with_buffer(KetShellpairList_t ket_shellpair_list, int *PQlist_buffer);
+void init_KetShellpairList_with_buffer(KetShellpairList_p ket_shellpair_list, int *PQlist_buffer);
 
 // Add a ket-side shell pair to a KetShellpairList
 // Frequently used, inline it
-static inline void add_shellpair_to_KetShellPairList(KetShellpairList_t ket_shellpair_list, int P, int Q)
+static inline void add_shellpair_to_KetShellPairList(KetShellpairList_p ket_shellpair_list, int P, int Q)
 {
     int index = ket_shellpair_list->npairs;
     ket_shellpair_list->P_list[index] = P;
@@ -47,10 +47,10 @@ static inline void add_shellpair_to_KetShellPairList(KetShellpairList_t ket_shel
 // We don't need a reset function for KetShellpairList, since we just need to set npairs = 0
 
 // Create a ThreadKetShellpairLists and initialize all its KetShellpairLists
-void create_ThreadKetShellpairLists(ThreadKetShellpairLists_t *_thread_ket_sp_lists);
+void create_ThreadKetShellpairLists(ThreadKetShellpairLists_p *_thread_ket_sp_lists);
 
 // Free a ThreadKetShellpairLists and all its KetShellpairLists, release the memory
-void free_ThreadKetShellpairLists(ThreadKetShellpairLists_t thread_ket_sp_lists);
+void free_ThreadKetShellpairLists(ThreadKetShellpairLists_p thread_ket_sp_lists);
 
 // We don't need a reset function for ThreadKetShellpairLists, since all KetShellpairLists
 // will be checked and reset after each MN iteration

@@ -14,7 +14,7 @@ extern "C" {
 //   cf_str  : Correlation function string, default is "LDA_C_XALPHA" (Slater's Xalpha)
 // Output parameters:
 //   TinyDFT : TinyDFT structure with XC integral environment ready
-void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char *cf_str);
+void TinyDFT_setup_XC_integral(TinyDFT_p TinyDFT, const char *xf_str, const char *cf_str);
 
 // Construct DFT exchange-correlation matrix
 // Input parameters:
@@ -23,7 +23,7 @@ void TinyDFT_setup_XC_integral(TinyDFT_t TinyDFT, const char *xf_str, const char
 // Output parameters:
 //   XC_mat   : DFT exchange-correlation matrix
 //   <return> : DFT exchange-correlation energy
-double TinyDFT_build_XC_mat(TinyDFT_t TinyDFT, const double *D_mat, double *XC_mat);
+double TinyDFT_build_XC_mat(TinyDFT_p TinyDFT, const double *D_mat, double *XC_mat);
 
 #ifdef __cplusplus
 }

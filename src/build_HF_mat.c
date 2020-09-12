@@ -14,7 +14,7 @@
 #include "acc_JKmat.h"
 #include "libCMS.h"
 
-void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S_mat, double *X_mat)
+void TinyDFT_build_Hcore_S_X_mat(TinyDFT_p TinyDFT, double *Hcore_mat, double *S_mat, double *X_mat)
 {
     assert(TinyDFT != NULL);
     
@@ -23,8 +23,8 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
     int mat_size       = TinyDFT->mat_size;
     int *shell_bf_sind = TinyDFT->shell_bf_sind;
     int *shell_bf_num  = TinyDFT->shell_bf_num;
-    Simint_t   simint  = TinyDFT->simint;
-    BasisSet_t basis   = TinyDFT->basis;
+    Simint_p   simint  = TinyDFT->simint;
+    BasisSet_p basis   = TinyDFT->basis;
     
     // Compute core Hamiltonian and overlap matrix
     memset(Hcore_mat, 0, DBL_MSIZE * mat_size);
@@ -46,11 +46,11 @@ void TinyDFT_build_Hcore_S_X_mat(TinyDFT_t TinyDFT, double *Hcore_mat, double *S
             
             // Compute the contribution of current shell pair to core Hamiltonian matrix
             CMS_Simint_calc_pair_ovlp(simint, tid, M, N, &integrals, &nint);
-            if (nint > 0) copy_dbl_mat_blk(integrals, ncols, nrows, ncols, S_ptr, nbf);
+            if (nint > 0) copy_matrix_block(sizeof(double), nrows, ncols, integrals, ncols, S_ptr, nbf);
             
             // Compute the contribution of current shell pair to overlap matrix
             CMS_Simint_calc_pair_Hcore(basis, simint, tid, M, N, &integrals, &nint);
-            if (nint > 0) copy_dbl_mat_blk(integrals, ncols, nrows, ncols, Hcore_ptr, nbf);
+            if (nint > 0) copy_matrix_block(sizeof(double), nrows, ncols, integrals, ncols, Hcore_ptr, nbf);
         }
     }
     
@@ -161,9 +161,9 @@ static void TinyDFT_JKblkmat_to_JKmat(
             {
                 int Jblk_offset = blk_mat_ptr[i * nshell + j];
                 int J_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
-                copy_dbl_mat_blk(
+                copy_matrix_block(
+                    sizeof(double), shell_bf_num[i], shell_bf_num[j],
                     J_blk_mat + Jblk_offset, shell_bf_num[j],
-                    shell_bf_num[i], shell_bf_num[j],
                     J_mat + J_offset, nbf
                 );
             }
@@ -179,9 +179,9 @@ static void TinyDFT_JKblkmat_to_JKmat(
             {
                 int Kblk_offset = blk_mat_ptr[i * nshell + j];
                 int K_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
-                copy_dbl_mat_blk(
+                copy_matrix_block(
+                    sizeof(double), shell_bf_num[i], shell_bf_num[j],
                     K_blk_mat + Kblk_offset, shell_bf_num[j],
-                    shell_bf_num[i], shell_bf_num[j],
                     K_mat + K_offset, nbf
                 );
             }
@@ -201,16 +201,16 @@ static void TinyDFT_Dmat_to_Dblkmat(
         {
             int Dblk_offset = blk_mat_ptr[i * nshell + j];
             int D_offset    = shell_bf_sind[i] * nbf + shell_bf_sind[j];
-            copy_dbl_mat_blk(
+            copy_matrix_block(
+                sizeof(double), shell_bf_num[i], shell_bf_num[j],
                 D_mat + D_offset, nbf, 
-                shell_bf_num[i], shell_bf_num[j],
                 D_blk_mat + Dblk_offset, shell_bf_num[j]
             );
         }
     }
 }
 
-void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, double *K_mat)
+void TinyDFT_build_JKmat(TinyDFT_p TinyDFT, const double *D_mat, double *J_mat, double *K_mat)
 {
     int    nbf            = TinyDFT->nbf;
     int    nshell         = TinyDFT->nshell;
@@ -232,7 +232,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
     double *D_blk_mat     = TinyDFT->D_blk_mat;
     double *FM_strip_buf  = TinyDFT->FM_strip_buf;
     double *FN_strip_buf  = TinyDFT->FN_strip_buf;
-    Simint_t simint       = TinyDFT->simint;
+    Simint_p simint       = TinyDFT->simint;
     
     int build_J = (J_mat == NULL) ? 0 : 1;
     int build_K = (K_mat == NULL) ? 0 : 1;
@@ -252,7 +252,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
         
         // Create ERI batching auxiliary data structures
         // Ket-side shell pair lists that needs to be computed
-        ThreadKetShellpairLists_t thread_ksp_lists;
+        ThreadKetShellpairLists_p thread_ksp_lists;
         create_ThreadKetShellpairLists(&thread_ksp_lists);
         // Simint multi_shellpair buffer for batched ERI computation
         void *thread_multi_shellpair;
@@ -303,7 +303,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
                 
                 // Push ket-side shell pair to corresponding list
                 int ket_id = CMS_Simint_get_sp_AM_idx(simint, P, Q);
-                KetShellpairList_t dst_sp_list = &thread_ksp_lists->ket_shellpair_lists[ket_id];
+                KetShellpairList_p dst_sp_list = &thread_ksp_lists->ket_shellpair_lists[ket_id];
                 add_shellpair_to_KetShellPairList(dst_sp_list, P, Q);
                 
                 // If the ket-side shell pair list we just used is full, handle it
@@ -348,7 +348,7 @@ void TinyDFT_build_JKmat(TinyDFT_t TinyDFT, const double *D_mat, double *J_mat, 
             // Handles all non-empty ket-side shell pair lists
             for (int ket_id = 0; ket_id < MAX_AM_PAIRS; ket_id++)
             {
-                KetShellpairList_t dst_sp_list = &thread_ksp_lists->ket_shellpair_lists[ket_id];
+                KetShellpairList_p dst_sp_list = &thread_ksp_lists->ket_shellpair_lists[ket_id];
                 
                 if (dst_sp_list->npairs > 0)
                 {

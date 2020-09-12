@@ -35,8 +35,8 @@ struct TinyDFT_struct
     double shell_scrtol2;   // Square of the shell screening tolerance
     double *sp_scrval;      // Size num_total_sp, square of screening values of each shell pair
     double *bf_pair_scrval; // Screening values of each BF pair
-    Simint_t   simint;      // Simint object for ERI, handled by libCMS
-    BasisSet_t basis;       // Basis set object for storing chemical system info, handled by libCMS
+    Simint_p   simint;      // Simint object for ERI, handled by libCMS
+    BasisSet_p basis;       // Basis set object for storing chemical system info, handled by libCMS
     
     // Molecular system and ERI info for density fitting (DF)
     char   *df_bas_name;        // DF asis set file name
@@ -52,7 +52,7 @@ struct TinyDFT_struct
     int    *bf_mask_displs;     // How many BF pairs in (i, :) survive screening and their storing order
     double max_df_scrval;
     double *df_sp_scrval;       // Square of screening values of each shell pair in DF
-    BasisSet_t df_basis;        // Basis set object for storing DF info, handled by libCMS 
+    BasisSet_p df_basis;        // Basis set object for storing DF info, handled by libCMS 
     
     // Flattened Gaussian basis function and atom info used only in XC calculation
     int    max_nprim;       // Maximum number of primitive functions in all shells
@@ -171,7 +171,7 @@ struct TinyDFT_struct
     double mem_size, init_time, S_Hcore_time, shell_scr_time;
 };
 
-typedef struct TinyDFT_struct* TinyDFT_t;
+typedef struct TinyDFT_struct* TinyDFT_p;
 
 #ifdef __cplusplus
 extern "C" {
@@ -186,12 +186,12 @@ extern "C" {
 //   xyz_fname : Molecule coordinate file name
 // Output parameter:
 //   TinyDFT_ : Pointer to a initialized TinyDFT structure
-void TinyDFT_init(TinyDFT_t *TinyDFT_, char *bas_fname, char *xyz_fname);
+void TinyDFT_init(TinyDFT_p *TinyDFT_, char *bas_fname, char *xyz_fname);
 
 // Destroy a TinyDFT structure
 // Input parameter:
 //   TinyDFT_ : Pointer to a TinyDFT structure to be destroyed
-void TinyDFT_destroy(TinyDFT_t *_TinyDFT);
+void TinyDFT_destroy(TinyDFT_p *_TinyDFT);
 
 #ifdef __cplusplus
 }

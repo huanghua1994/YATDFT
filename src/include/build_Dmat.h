@@ -14,7 +14,7 @@ extern "C" {
 //   TinyDFT : Initialized TinyDFT structure
 // Output parameter:
 //   D_mat : Initial density matrix, size nbf * nbf
-void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat);
+void TinyDFT_build_Dmat_SAD(TinyDFT_p TinyDFT, double *D_mat);
 
 // Do an incomplete Cholesky decomposition of D to form Cocc for density fitting
 // Input parameters:
@@ -22,7 +22,7 @@ void TinyDFT_build_Dmat_SAD(TinyDFT_t TinyDFT, double *D_mat);
 //   D_mat   : Density matrix, size nbf * nbf
 // Output parameter:
 //   Cocc_mat : Cocc matrix, size nbf * n_occ
-void TinyDFT_build_Cocc_from_Dmat(TinyDFT_t TinyDFT, const double *D_mat, double *Cocc_mat);
+void TinyDFT_build_Cocc_from_Dmat(TinyDFT_p TinyDFT, const double *D_mat, double *Cocc_mat);
 
 // Build density matrix using eigen-decomposition
 // Input parameter:
@@ -32,7 +32,7 @@ void TinyDFT_build_Cocc_from_Dmat(TinyDFT_t TinyDFT, const double *D_mat, double
 // Output parameter:
 //   D_mat    : Density matrix, size nbf * nbf, D = Cocc * Cocc^T
 //   Cocc_mat : Cocc matrix, size nbf * n_occ
-void TinyDFT_build_Dmat_eig(TinyDFT_t TinyDFT, const double *F_mat, const double *X_mat, double *D_mat, double *Cocc_mat);
+void TinyDFT_build_Dmat_eig(TinyDFT_p TinyDFT, const double *F_mat, const double *X_mat, double *D_mat, double *Cocc_mat);
 
 #ifdef __cplusplus
 }

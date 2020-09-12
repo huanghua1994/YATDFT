@@ -37,7 +37,7 @@ struct Simint
     double *num_screened_vec,  *num_unscreened_vec;
 };
 
-typedef struct Simint *Simint_t;
+typedef struct Simint *Simint_p;
 
 // The following 2 constants are corresponding to Simint_OSTEI_MAXAM
 // and Simint_NSHELL_SIMD in Simint. I cannot include <simint/simint.h>
@@ -58,7 +58,7 @@ extern "C" {
 //   prim_scrval : Primitive integral screening threshold (usually 1e-14)
 // Output parameter:
 //   simint : Initialized Simint structure
-void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double prim_scrval);
+void CMS_Simint_init(BasisSet_p basis, Simint_p *simint, int nthread, double prim_scrval);
 
 // Create Simint shell pair structures for unique screened shell pairs
 // Input parameters:
@@ -66,7 +66,7 @@ void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double pri
 //   {M,N}_list : Shell pair (M_list[i], N_list[i]) is a unique screened shell pair
 // Output parameter: 
 //   simint : Simint structure with initialized unique screened shell pairs
-void CMS_Simint_create_uniq_scr_sp(Simint_t simint, const int nsp, const int *M_list, const int *N_list);
+void CMS_Simint_create_uniq_scr_sp(Simint_p simint, const int nsp, const int *M_list, const int *N_list);
 
 // Set up density fitting (DF) related data structures in a Simint structure
 // Input parameters:
@@ -74,7 +74,7 @@ void CMS_Simint_create_uniq_scr_sp(Simint_t simint, const int nsp, const int *M_
 //   df_basis : Initialized BasisSet structure for DF basis set
 // Output parameter:
 //   simint : Simint structure with initialized DF related data structures
-void CMS_Simint_setup_DF(Simint_t simint, BasisSet_t df_basis);
+void CMS_Simint_setup_DF(Simint_p simint, BasisSet_p df_basis);
 
 // Free shells and shell pairs used in DF after constructing the DF tensor.
 // Not necessary, just to save some memory as soon as possible. If this function is 
@@ -83,13 +83,13 @@ void CMS_Simint_setup_DF(Simint_t simint, BasisSet_t df_basis);
 //   simint : Simint structure with initialized DF related data structures
 // Output parameter:
 //   simint : Simint structure without initialized DF related data structures
-void CMS_Simint_free_DF_shellpairs(Simint_t simint);
+void CMS_Simint_free_DF_shellpairs(Simint_p simint);
 
 // Destroy a Simint structure and free all memory
 // Input parameters:
 //   simint    : Simint structure to be destroyed
 //   show_stat : 0/1, 1 will show Simint statistic information
-void CMS_Simint_destroy(Simint_t simint, int show_stat);
+void CMS_Simint_destroy(Simint_p simint, int show_stat);
 
 // Get the AM pair index of a shell pair
 // Input parameters:
@@ -97,7 +97,7 @@ void CMS_Simint_destroy(Simint_t simint, int show_stat);
 //   P, Q   : Regular shell pair (P, Q) in simint
 // Output parameter:
 //   <return> : AM(P) * _SIMINT_OSTEI_MAXAM + AM(Q)
-int  CMS_Simint_get_sp_AM_idx(Simint_t simint, int P, int Q);
+int  CMS_Simint_get_sp_AM_idx(Simint_p simint, int P, int Q);
 
 // Get the shell pair screening value of the i-th DF shell pair
 // Input parameters:
@@ -105,7 +105,7 @@ int  CMS_Simint_get_sp_AM_idx(Simint_t simint, int P, int Q);
 //   i      : DF shell pair index
 // Output parameter:
 //   <return> : Shell pair screening value of the i-th DF shell pair
-double CMS_Simint_get_DF_sp_scrval(Simint_t simint, int i);
+double CMS_Simint_get_DF_sp_scrval(Simint_p simint, int i);
 
 // Create a simint_multi_shellpair structure and return the pointer to it
 // Output parameter:
@@ -127,7 +127,7 @@ void CMS_Simint_free_multi_sp(void *multi_sp);
 //   *integrals : Pointer to the calculated block, size NCART(AM(A)) * NCART(AM(B))
 //   *nint      : 0 if simint is not initialized, otherwise == NCART(AM(A)) * NCART(AM(B))
 void CMS_Simint_calc_pair_Hcore(
-    BasisSet_t basis, Simint_t simint, int tid,
+    BasisSet_p basis, Simint_p simint, int tid,
     int A, int B, double **integrals, int *nint
 );
 
@@ -140,7 +140,7 @@ void CMS_Simint_calc_pair_Hcore(
 //   *integrals : Pointer to the calculated block, size NCART(AM(A)) * NCART(AM(B))
 //   *nint      : 0 if simint is not initialized, otherwise == NCART(AM(A)) * NCART(AM(B))
 void CMS_Simint_calc_pair_ovlp(
-    Simint_t simint, int tid, int A, int B, 
+    Simint_p simint, int tid, int A, int B, 
     double **integrals, int *nint
 );
 
@@ -155,7 +155,7 @@ void CMS_Simint_calc_pair_ovlp(
 //   *nint : 0 if simint is not initialized, otherwise == 
 //           NCART(AM(M)) * NCART(AM(N)) * NCART(AM(P)) * NCART(AM(Q))
 void CMS_Simint_calc_shellquartet(
-    Simint_t simint, int tid, int M, int N, 
+    Simint_p simint, int tid, int M, int N, 
     int P, int Q, double **ERI, int *nint
 );
 
@@ -171,7 +171,7 @@ void CMS_Simint_calc_shellquartet(
 //   *nint : 0 if simint is not initialized, otherwise == 
 //           NCART(AM(M)) * NCART(AM(N)) * NCART(AM(M)) * NCART(AM(N))  
 void CMS_Simint_calc_MNMN_shellquartet(
-    Simint_t simint, int tid, int M, int N, 
+    Simint_p simint, int tid, int M, int N, 
     void **multi_sp_, double **ERI, int *nint
 );
 
@@ -190,7 +190,7 @@ void CMS_Simint_calc_MNMN_shellquartet(
 //   *batch_nint : 0 if simint is not initialized, otherwise == 
 //                 NCART(AM(M)) * NCART(AM(N)) * NCART(AM(P)) * NCART(AM(Q))
 void CMS_Simint_calc_shellquartet_batch(
-    Simint_t simint, int tid, int M, int N, int npair, int *P_list, 
+    Simint_p simint, int tid, int M, int N, int npair, int *P_list, 
     int *Q_list, double **batch_ERI, int *batch_nint, void **multi_sp_
 );
 
@@ -203,7 +203,7 @@ void CMS_Simint_calc_shellquartet_batch(
 //   *integrals : Pointer to the calculated block, size NCART(AM(M)) * NCART(AM(N))
 //   *nint      : 0 if simint is not initialized, otherwise == NCART(AM(M)) * NCART(AM(N))
 void CMS_Simint_calc_DF_shellpair(
-    Simint_t simint, int tid, int M, int N,
+    Simint_p simint, int tid, int M, int N,
     double **integrals, int *nint
 );
 
@@ -221,7 +221,7 @@ void CMS_Simint_calc_DF_shellpair(
 //   *batch_nint : 0 if simint is not initialized, otherwise == 
 //                 NCART(AM(M)) * NCART(AM(N)) * NCART(AM(P))
 void CMS_Simint_calc_DF_shellquartet_batch(
-    Simint_t simint, int tid, int M, int N, int npair, int *P_list, 
+    Simint_p simint, int tid, int M, int N, int npair, int *P_list, 
     double **batch_ERI, int *batch_nint, void **multi_sp_
 );
 
@@ -229,12 +229,12 @@ void CMS_Simint_calc_DF_shellquartet_batch(
 // Input parameters:
 //   simint : Simint structure
 //   sec    : Fock matrix accumulation time, in seconds
-void CMS_Simint_add_accF_timer(Simint_t simint, double sec);
+void CMS_Simint_add_accF_timer(Simint_p simint, double sec);
 
 // Reset all Simint statistic information
 // Input parameter:
 //   simint : Simint structure to be reset
-void CMS_Simint_reset_stat_info(Simint_t simint);
+void CMS_Simint_reset_stat_info(Simint_p simint);
 
 #ifdef __cplusplus
 }

@@ -6,20 +6,20 @@
 
 // Sanity check for parameters is skipped for better performance
 
-void init_KetShellpairList_with_buffer(KetShellpairList_t ket_shellpair_list, int *PQlist_buffer)
+void init_KetShellpairList_with_buffer(KetShellpairList_p ket_shellpair_list, int *PQlist_buffer)
 {
     ket_shellpair_list->npairs = 0;
     ket_shellpair_list->P_list = PQlist_buffer;
     ket_shellpair_list->Q_list = PQlist_buffer + MAX_LIST_SIZE;
 }
 
-void create_ThreadKetShellpairLists(ThreadKetShellpairLists_t *_thread_ket_sp_lists)
+void create_ThreadKetShellpairLists(ThreadKetShellpairLists_p *_thread_ket_sp_lists)
 {
-    ThreadKetShellpairLists_t thread_ket_sp_lists;
-    thread_ket_sp_lists = (ThreadKetShellpairLists_t) malloc(sizeof(ThreadKetShellpairLists));
+    ThreadKetShellpairLists_p thread_ket_sp_lists;
+    thread_ket_sp_lists = (ThreadKetShellpairLists_p) malloc(sizeof(ThreadKetShellpairLists));
     
     void *ptr = malloc(sizeof(KetShellpairList) * MAX_AM_PAIRS);
-    thread_ket_sp_lists->ket_shellpair_lists = (KetShellpairList_t) ptr;
+    thread_ket_sp_lists->ket_shellpair_lists = (KetShellpairList_p) ptr;
     assert(thread_ket_sp_lists->ket_shellpair_lists != NULL);
     
     thread_ket_sp_lists->bufptr = (int*) malloc(sizeof(int) * MAX_AM_PAIRS * MAX_LIST_SIZE * 2);
@@ -36,7 +36,7 @@ void create_ThreadKetShellpairLists(ThreadKetShellpairLists_t *_thread_ket_sp_li
     *_thread_ket_sp_lists = thread_ket_sp_lists;
 }
 
-void free_ThreadKetShellpairLists(ThreadKetShellpairLists_t thread_ket_sp_lists)
+void free_ThreadKetShellpairLists(ThreadKetShellpairLists_p thread_ket_sp_lists)
 {
     free(thread_ket_sp_lists->ket_shellpair_lists);
     free(thread_ket_sp_lists->bufptr);

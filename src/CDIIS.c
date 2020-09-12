@@ -9,7 +9,7 @@
 #include "CDIIS.h"
 #include "utils.h"
 
-void TinyDFT_CDIIS(TinyDFT_t TinyDFT, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat)
+void TinyDFT_CDIIS(TinyDFT_p TinyDFT, const double *X_mat, const double *S_mat, const double *D_mat, double *F_mat)
 {
     int    nbf       = TinyDFT->nbf;
     int    mat_size  = TinyDFT->mat_size;

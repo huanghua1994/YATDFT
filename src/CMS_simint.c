@@ -26,11 +26,11 @@ static double CMS_get_walltime_sec()
     return sec;
 }
 
-void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double prim_scrval)
+void CMS_Simint_init(BasisSet_p basis, Simint_p *simint, int nthread, double prim_scrval)
 {
     CMS_ASSERT(nthread > 0);
 
-    Simint_t s = (Simint_t) calloc(1, sizeof(struct Simint));
+    Simint_p s = (Simint_p) calloc(1, sizeof(struct Simint));
     CMS_ASSERT(s != NULL);
 
     simint_init();
@@ -142,7 +142,7 @@ void CMS_Simint_init(BasisSet_t basis, Simint_t *simint, int nthread, double pri
     *simint = s;
 }
 
-void CMS_Simint_create_uniq_scr_sp(Simint_t simint, const int nsp, const int *M_list, const int *N_list)
+void CMS_Simint_create_uniq_scr_sp(Simint_p simint, const int nsp, const int *M_list, const int *N_list)
 {
     int nshell = simint->nshell;
     
@@ -172,9 +172,9 @@ void CMS_Simint_create_uniq_scr_sp(Simint_t simint, const int nsp, const int *M_
     printf("CMS Simint memory usage = %.2lf MB \n", Simint_mem_MB);
 }
 
-void CMS_Simint_setup_DF(Simint_t simint, BasisSet_t df_basis)
+void CMS_Simint_setup_DF(Simint_p simint, BasisSet_p df_basis)
 {
-    Simint_t s = simint;
+    Simint_p s = simint;
     
     // Reallocate workbuf for density fitting
     s->df_max_am = df_basis->max_momentum;
@@ -275,7 +275,7 @@ void CMS_Simint_setup_DF(Simint_t simint, BasisSet_t df_basis)
     }
 }
 
-void CMS_Simint_free_DF_shellpairs(Simint_t simint)
+void CMS_Simint_free_DF_shellpairs(Simint_p simint)
 {
     int df_nshell = simint->df_nshell;
     
@@ -294,7 +294,7 @@ void CMS_Simint_free_DF_shellpairs(Simint_t simint)
     simint->df_am_shell_num  = NULL;
 }
 
-void CMS_Simint_destroy(Simint_t simint, int show_stat)
+void CMS_Simint_destroy(Simint_p simint, int show_stat)
 {
     // Generate final statistic info
     double sum_msp = 0, sum_nprim = 0;
@@ -358,13 +358,13 @@ void CMS_Simint_destroy(Simint_t simint, int show_stat)
     simint_finalize();
 }
 
-int  CMS_Simint_get_sp_AM_idx(Simint_t simint, int P, int Q)
+int  CMS_Simint_get_sp_AM_idx(Simint_p simint, int P, int Q)
 {
     shell_t shells = simint->shells;
     return shells[P].am * ((_SIMINT_OSTEI_MAXAM) + 1) + shells[Q].am;
 }
 
-double CMS_Simint_get_DF_sp_scrval(Simint_t simint, int i)
+double CMS_Simint_get_DF_sp_scrval(Simint_p simint, int i)
 {
     multi_sp_t pair;
     pair = &simint->df_shellpairs[i];
@@ -389,7 +389,7 @@ void CMS_Simint_free_multi_sp(void *multi_sp)
 }
 
 static void CMS_Simint_fill_multi_sp_list(
-    Simint_t simint, int npair, int *P_list, int *Q_list, 
+    Simint_p simint, int npair, int *P_list, int *Q_list, 
     multi_sp_t multi_sp
 )
 {
@@ -413,7 +413,7 @@ static void CMS_Simint_fill_multi_sp_list(
 }
 
 void CMS_Simint_calc_pair_Hcore(
-    BasisSet_t basis, Simint_t simint, int tid,
+    BasisSet_p basis, Simint_p simint, int tid,
     int A, int B, double **integrals, int *nint
 )
 {
@@ -440,7 +440,7 @@ void CMS_Simint_calc_pair_Hcore(
 }
 
 void CMS_Simint_calc_pair_ovlp(
-    Simint_t simint, int tid, int A, int B, 
+    Simint_p simint, int tid, int A, int B, 
     double **integrals, int *nint
 )
 {
@@ -455,7 +455,7 @@ void CMS_Simint_calc_pair_ovlp(
 }
 
 void CMS_Simint_calc_shellquartet(
-    Simint_t simint, int tid, int M, int N, 
+    Simint_p simint, int tid, int M, int N, 
     int P, int Q, double **ERI, int *nint
 )
 {
@@ -513,7 +513,7 @@ void CMS_Simint_calc_shellquartet(
 }
 
 void CMS_Simint_calc_MNMN_shellquartet(
-    Simint_t simint, int tid, int M, int N, 
+    Simint_p simint, int tid, int M, int N, 
     void **multi_sp_, double **ERI, int *nint
 )
 {
@@ -575,7 +575,7 @@ void CMS_Simint_calc_MNMN_shellquartet(
 }
 
 void CMS_Simint_calc_shellquartet_batch(
-    Simint_t simint, int tid, int M, int N, int npair, int *P_list, 
+    Simint_p simint, int tid, int M, int N, int npair, int *P_list, 
     int *Q_list, double **batch_ERI, int *batch_nint, void **multi_sp_
 )
 {
@@ -637,7 +637,7 @@ void CMS_Simint_calc_shellquartet_batch(
 }
 
 static void CMS_Simint_fill_DF_multi_sp_list(
-    Simint_t simint, int npair, int *P_list, 
+    Simint_p simint, int npair, int *P_list, 
     struct simint_multi_shellpair *multi_sp
 )
 {
@@ -660,7 +660,7 @@ static void CMS_Simint_fill_DF_multi_sp_list(
 }
 
 void CMS_Simint_calc_DF_shellpair(
-    Simint_t simint, int tid, int M, int N,
+    Simint_p simint, int tid, int M, int N,
     double **integrals, int *nint
 )
 {
@@ -716,7 +716,7 @@ void CMS_Simint_calc_DF_shellpair(
 }
 
 void CMS_Simint_calc_DF_shellquartet_batch(
-    Simint_t simint, int tid, int M, int N, int npair, int *P_list, 
+    Simint_p simint, int tid, int M, int N, int npair, int *P_list, 
     double **batch_ERI, int *batch_nint, void **multi_sp_
 )
 {
@@ -777,12 +777,12 @@ void CMS_Simint_calc_DF_shellquartet_batch(
     }
 }
 
-void CMS_Simint_add_accF_timer(Simint_t simint, double sec)
+void CMS_Simint_add_accF_timer(Simint_p simint, double sec)
 {
     simint->fock_update_F += sec;
 }
 
-void CMS_Simint_reset_stat_info(Simint_t simint)
+void CMS_Simint_reset_stat_info(Simint_p simint)
 {
     int stat_info_size = sizeof(double) * simint->nthread;
     memset(simint->num_multi_shellpairs, 0, stat_info_size);

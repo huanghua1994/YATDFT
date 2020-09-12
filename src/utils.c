@@ -1,10 +1,11 @@
 // @brief    : Implementations of some helper functions I use here and there
 // @author   : Hua Huang <huangh223@gatech.edu>
-// @modified : 2020-02-10
+// @modified : 2020-08-28
 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <complex.h>
 #include <sys/time.h>
 #include <math.h>
 
@@ -67,11 +68,11 @@ void free_aligned(void *mem)
 }
 
 // Calculate the 2-norm of a vector
+// Warning: this is a naive implementation, not numerically stable
 double calc_2norm(const int len, const double *x)
 {
     double res = 0.0;
-    for (int i = 0; i < len; i++)
-        res += x[i] * x[i];
+    for (int i = 0; i < len; i++) res += x[i] * x[i];
     return sqrt(res);
 }
 
@@ -93,24 +94,92 @@ void calc_err_2norm(
     *err_2norm_ = sqrt(err_2norm);
 }
 
-// Copy a row-major int matrix block to another row-major int matrix
-void copy_int_mat_blk(
-    const int *src, const int lds, const int nrow, const int ncol, 
-    int *dst, const int ldd
+// Copy a row-major matrix block to another row-major matrix
+void copy_matrix_block(
+    const size_t dt_size, const int nrow, const int ncol, 
+    const void *src, const int lds, void *dst, const int ldd
 )
 {
+    const char *src_ = (char*) src;
+    char *dst_ = (char*) dst;
+    const size_t lds_ = dt_size * (size_t) lds;
+    const size_t ldd_ = dt_size * (size_t) ldd;
+    const size_t row_msize = dt_size * (size_t) ncol;
     for (int irow = 0; irow < nrow; irow++)
-        memcpy(dst + irow * ldd, src + irow * lds, INT_MSIZE * ncol);
+    {
+        size_t src_offset = (size_t) irow * lds_;
+        size_t dst_offset = (size_t) irow * ldd_;
+        memcpy(dst_ + dst_offset, src_ + src_offset, row_msize);
+    }
 }
 
-// Copy a row-major double matrix block to another row-major double matrix
-void copy_dbl_mat_blk(
-    const double *src, const int lds, const int nrow, const int ncol,  
-    double *dst, const int ldd
+// Gather elements from a vector to another vector
+void gather_vector_elements(const size_t dt_size, const int nelem, const int *idx, const void *src, void *dst)
+{
+    if (dt_size == 4)
+    {
+        const float *src_ = (float*) src;
+        float *dst_ = (float*) dst;
+        #pragma omp simd
+        for (int i = 0; i < nelem; i++) dst_[i] = src_[idx[i]];
+    }
+    if (dt_size == 8)
+    {
+        const double *src_ = (double*) src;
+        double *dst_ = (double*) dst;
+        #pragma omp simd
+        for (int i = 0; i < nelem; i++) dst_[i] = src_[idx[i]];
+    }
+    if (dt_size == 16)
+    {
+        const double _Complex *src_ = (double _Complex*) src;
+        double _Complex *dst_ = (double _Complex*) dst;
+        #pragma omp simd
+        for (int i = 0; i < nelem; i++) dst_[i] = src_[idx[i]];
+    }
+}
+
+// Gather rows from a matrix to another matrix
+void gather_matrix_rows(
+    const size_t dt_size, const int nrow, const int ncol, const int *idx, 
+    const void *src, const int lds, void *dst, const int ldd
 )
 {
+    const char *src_ = (char*) src;
+    char *dst_ = (char*) dst;
+    const size_t lds_ = dt_size * (size_t) lds;
+    const size_t ldd_ = dt_size * (size_t) ldd;
+    const size_t row_msize = dt_size * (size_t) ncol;
+    #if defined(_OPENMP)
+    #pragma omp parallel for schedule(static)
+    #endif
     for (int irow = 0; irow < nrow; irow++)
-        memcpy(dst + irow * ldd, src + irow * lds, DBL_MSIZE * ncol);
+    {
+        size_t src_offset = (size_t) idx[irow] * lds_;
+        size_t dst_offset = (size_t) irow * ldd_;
+        memcpy(dst_ + dst_offset, src_ + src_offset, row_msize);
+    }
+}
+
+// Gather columns from a matrix to another matrix
+void gather_matrix_cols(
+    const size_t dt_size, const int nrow, const int ncol, const int *idx, 
+    const void *src, const int lds, void *dst, const int ldd
+)
+{
+    const char *src_ = (char*) src;
+    char *dst_ = (char*) dst;
+    const size_t lds_ = dt_size * (size_t) lds;
+    const size_t ldd_ = dt_size * (size_t) ldd;
+    #if defined(_OPENMP)
+    #pragma omp parallel for schedule(static)
+    #endif
+    for (int irow = 0; irow < nrow; irow++)
+    {
+        size_t src_offset = (size_t) irow * lds_;
+        size_t dst_offset = (size_t) irow * ldd_;
+        gather_vector_elements(dt_size, ncol, idx, src_ + src_offset, dst_ + dst_offset);
+    }
 }
 
 // Print a row-major int matrix block to standard output
