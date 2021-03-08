@@ -81,29 +81,54 @@ void TinyDFT_build_Cocc_from_Dmat(TinyDFT_p TinyDFT, const double *D_mat, double
     free(piv);
 }
 
-static void quickSort(double *eigval, int *ev_idx, int l, int r)
+static void qsort_dbl_key_int_val(double *key, int *val, int l, int r)
 {
     int i = l, j = r, iswap;
-    double mid = eigval[(i + j) / 2], dswap;
+    double mid = key[(i + j) / 2], dswap;
     while (i <= j)
     {
-        while (eigval[i] < mid) i++;
-        while (eigval[j] > mid) j--;
+        while (key[i] < mid) i++;
+        while (key[j] > mid) j--;
         if (i <= j)
         {
-            iswap     = ev_idx[i];
-            ev_idx[i] = ev_idx[j];
-            ev_idx[j] = iswap;
+            iswap  = val[i];
+            val[i] = val[j];
+            val[j] = iswap;
             
-            dswap     = eigval[i];
-            eigval[i] = eigval[j];
-            eigval[j] = dswap;
+            dswap  = key[i];
+            key[i] = key[j];
+            key[j] = dswap;
             
             i++;  j--;
         }
     }
-    if (i < r) quickSort(eigval, ev_idx, i, r);
-    if (j > l) quickSort(eigval, ev_idx, l, j);
+    if (i < r) qsort_dbl_key_int_val(key, val, i, r);
+    if (j > l) qsort_dbl_key_int_val(key, val, l, j);
+}
+
+void TinyDFT_build_Cocc_from_Dmat_eig(TinyDFT_p TinyDFT, const double *D_mat, double *Cocc_mat)
+{
+    int    nbf       = TinyDFT->nbf;
+    int    n_occ     = TinyDFT->n_occ;
+    int    mat_size  = TinyDFT->mat_size;
+    int    *ev_idx   = TinyDFT->ev_idx;
+    double *eigval   = TinyDFT->eigval;
+    double *tmp_mat  = TinyDFT->tmp_mat;
+
+    memcpy(tmp_mat, D_mat, DBL_MSIZE * mat_size);
+
+    LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'V', 'U', nbf, tmp_mat, nbf, eigval);
+
+    // Form the C_occ with eigenvectors corresponding to n_occ largest abs(eigenvalues)
+    for (int i = 0; i < nbf; i++)
+    {
+        eigval[i] = fabs(eigval[i]);
+        ev_idx[i] = i;
+    }
+    qsort_dbl_key_int_val(eigval, ev_idx, 0, nbf - 1);
+    for (int j = 0; j < n_occ; j++)
+        for (int i = 0; i < nbf; i++)
+            Cocc_mat[i * n_occ + j] = tmp_mat[i * nbf + ev_idx[j]];
 }
 
 void TinyDFT_build_Dmat_eig(TinyDFT_p TinyDFT, const double *F_mat, const double *X_mat, double *D_mat, double *Cocc_mat)
@@ -129,7 +154,7 @@ void TinyDFT_build_Dmat_eig(TinyDFT_p TinyDFT, const double *F_mat, const double
     
     // Form the C_occ with eigenvectors corresponding to n_occ smallest eigenvalues
     for (int i = 0; i < nbf; i++) ev_idx[i] = i;
-    quickSort(eigval, ev_idx, 0, nbf - 1);
+    qsort_dbl_key_int_val(eigval, ev_idx, 0, nbf - 1);
     for (int j = 0; j < n_occ; j++)
         for (int i = 0; i < nbf; i++)
             Cocc_mat[i * n_occ + j] = D_mat[i * nbf + ev_idx[j]];

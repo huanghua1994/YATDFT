@@ -24,6 +24,14 @@ void TinyDFT_build_Dmat_SAD(TinyDFT_p TinyDFT, double *D_mat);
 //   Cocc_mat : Cocc matrix, size nbf * n_occ
 void TinyDFT_build_Cocc_from_Dmat(TinyDFT_p TinyDFT, const double *D_mat, double *Cocc_mat);
 
+// Do an eigen-decomposition of D to form Cocc for density fitting
+// Input parameters:
+//   TinyDFT : Initialized TinyDFT structure
+//   D_mat   : Density matrix, size nbf * nbf
+// Output parameter:
+//   Cocc_mat : Cocc matrix, size nbf * n_occ
+void TinyDFT_build_Cocc_from_Dmat_eig(TinyDFT_p TinyDFT, const double *D_mat, double *Cocc_mat);
+
 // Build density matrix using eigen-decomposition
 // Input parameter:
 //   TinyDFT : Initialized TinyDFT structure
