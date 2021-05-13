@@ -10,14 +10,25 @@
 
 #define _DEBUG_LEVEL_    1   // 0 to 10, 0 is no debug print info at all, 10 is full info
 
-#define ALIGNED_MALLOC(size)  _mm_malloc(size, __ALIGNLEN__)
-#define ALIGNED_FREE(addr)    _mm_free(addr)
+static inline void *CMS_malloc_aligned(size_t size, size_t alignment)
+{
+    void *ptr = NULL;
+    posix_memalign(&ptr, alignment, size);
+    return ptr;
+}
 
+static inline void CMS_free_aligned(void *mem)
+{
+    free(mem);
+}
+
+#define ALIGNED_MALLOC(size)  CMS_malloc_aligned(size, __ALIGNLEN__)
+#define ALIGNED_FREE(addr)    CMS_free_aligned(addr)
 
 #if ( _DEBUG_LEVEL_ == -1 )
 #define CMS_PRINTF( level, fmt, args... )        {}
 #else
-#define CMS_PRINTF( level, fmt, args... )                                          \
+#define CMS_PRINTF( level, fmt, args... )                                           \
         do                                                                          \
         {                                                                           \
             if ( (unsigned)(level) <= _DEBUG_LEVEL_ )                               \
@@ -32,11 +43,11 @@
 
 
 #if ( _DEBUG_LEVEL_ > 1 )
-#define CMS_INFO( fmt, args... )                                            \
+#define CMS_INFO( fmt, args... )                                             \
         do                                                                   \
         {                                                                    \
-            sprintf( basis->str_buf, "**** CMS: ");                         \
-            sprintf( basis->str_buf + strlen("**** CMS: "), fmt, ##args );  \
+            sprintf( basis->str_buf, "**** CMS: ");                          \
+            sprintf( basis->str_buf + strlen("**** CMS: "), fmt, ##args );   \
             fprintf( stdout, "%s", basis->str_buf );                         \
             fflush( stdout );                                                \
         } while ( 0 )

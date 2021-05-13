@@ -44,7 +44,7 @@ void CMS_Simint_init(BasisSet_p basis, Simint_p *simint, int nthread, double pri
     if (buff_size < max_ncart * max_ncart) buff_size = max_ncart * max_ncart;
     buff_size = (buff_size + 7) / 8 * 8;  // Align to 8 double (64 bytes)
     s->workmem_per_thread = buff_size;
-    s->workbuf = (double *) _mm_malloc(s->workmem_per_thread * nthread * sizeof(double), 64);
+    s->workbuf = (double *) CMS_malloc_aligned(s->workmem_per_thread * nthread * sizeof(double), 64);
     CMS_ASSERT(s->workbuf != NULL);
 
     // Allocate outbuf for all threads on this node
@@ -53,7 +53,7 @@ void CMS_Simint_init(BasisSet_p basis, Simint_p *simint, int nthread, double pri
     buff_size = max_ncart * max_ncart * max_ncart * max_ncart;
     buff_size = (buff_size + 7) / 8 * 8;   // Align to 8 double (64 bytes)
     s->outmem_per_thread = buff_size * _SIMINT_NSHELL_SIMD + 8;  
-    s->outbuf = (double *) _mm_malloc(s->outmem_per_thread * nthread * sizeof(double), 64);
+    s->outbuf = (double *) CMS_malloc_aligned(s->outmem_per_thread * nthread * sizeof(double), 64);
     CMS_ASSERT(s->outbuf != NULL);
 
     // Form and store Simint shells for all shells of this molecule
@@ -184,8 +184,8 @@ void CMS_Simint_setup_DF(Simint_p simint, BasisSet_p df_basis)
     if (buff_size < max_ncart * max_ncart) buff_size = max_ncart * max_ncart;
     buff_size = (buff_size + 7) / 8 * 8; // Align to 8 double (64 bytes)
     s->workmem_per_thread = buff_size;
-    _mm_free(s->workbuf);
-    s->workbuf = (double *) _mm_malloc(s->workmem_per_thread * s->nthread * sizeof(double), 64);
+    CMS_free_aligned(s->workbuf);
+    s->workbuf = (double *) CMS_malloc_aligned(s->workmem_per_thread * s->nthread * sizeof(double), 64);
     CMS_ASSERT(s->workbuf != NULL);
     
     // Form and store Simint shells for all density fitting shells
@@ -345,8 +345,8 @@ void CMS_Simint_destroy(Simint_p simint, int show_stat)
     free(simint->df_am_shell_id);
     free(simint->df_am_shell_spos);
     free(simint->df_am_shell_num);
-    _mm_free(simint->workbuf);
-    _mm_free(simint->outbuf);
+    CMS_free_aligned(simint->workbuf);
+    CMS_free_aligned(simint->outbuf);
     free(simint->num_multi_shellpairs);
     free(simint->sum_nprim);
     free(simint->num_screened_prim);

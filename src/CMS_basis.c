@@ -11,14 +11,6 @@
 #include "CMS_config.h"
 #include "CMS_basis.h"
 
-// For _mm_malloc and _mm_free
-#if defined(__INTEL_COMPILER)
-#include <malloc.h>
-#endif
-#if defined(__GNUC__) || (__clang__)
-#include <mm_malloc.h>
-#endif
-
 #define ELEN         50
 #define SLEN         5
 #define MAXNS        3
